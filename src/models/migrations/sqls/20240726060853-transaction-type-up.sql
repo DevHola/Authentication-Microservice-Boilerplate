@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS transaction_type (
+    transaction_type_id SERIAL UNIQUE PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    description VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
