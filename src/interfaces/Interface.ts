@@ -3,8 +3,12 @@ export interface UserType {
   description: string
 }
 export interface User {
-  name: string
+  user_id?: string
+  name?: string
   email: string
   password: string
-  usertype: number
+  usertype?: number
 }
+// export interface InnerUser extends User {
+//   user_id?: string
+// }

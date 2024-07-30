@@ -1,13 +1,16 @@
+import dotenv from 'dotenv'
+import path from 'path'
 import express, { type Request, type Response, type NextFunction } from 'express'
 import cors from 'cors'
 import morgan from 'morgan'
-import dotenv from 'dotenv'
-import path from 'path'
 import hemlet from 'helmet'
+import cookieparser from 'cookie-parser'
 import router from './routes'
 dotenv.config({ path: path.join(__dirname, '.env') })
+
 const app = express()
 app.use(cors())
+app.use(cookieparser())
 app.use(morgan('combined'))
 app.use(hemlet())
 app.use(express.json())
