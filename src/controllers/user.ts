@@ -1,8 +1,9 @@
 import { type Request, type Response, type NextFunction } from 'express'
 import { type User } from '../interfaces/Interface'
-import { register, login, storeRefreshToken, checkemail } from '../services/userService'
-import { reuseableMail } from '../config/config'
+import { register, login, storeRefreshToken, checkemail, storeResetToken } from '../services/userService'
+import { reusableMail } from '../config/config'
 import * as jwt from 'jsonwebtoken'
+
 const refresh = {
   secret: process.env.AUTH_REFRESH_TOKEN_SECRET,
   cookie: {
@@ -10,7 +11,7 @@ const refresh = {
   }
 }
 
-// CREATE USER
+// CREATE USER: Completed
 export const Register = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { name, email, password, usertype } = req.body as User
@@ -30,7 +31,7 @@ export const Register = async (req: Request, res: Response, next: NextFunction):
     }
   }
 }
-// USER LOGIN
+// USER LOGIN: Completed
 export const Login = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { email, password } = req.body as User
@@ -52,42 +53,135 @@ export const Login = async (req: Request, res: Response, next: NextFunction): Pr
       token: accesstoken
     })
   } catch (error) {
-    next(error)
+    if (error instanceof Error) {
+      if (error.message === 'User not found') {
+        res.status(404).json({
+          message: 'User not found'
+        })
+      } else if (error.message === 'incorrect credentials') {
+        res.status(401).json({
+          message: 'Invalid Credentials'
+        })
+      } else {
+        next(error)
+      }
+    }
   }
 }
 
-// USER FORGET PASSWORD
-export const forgetPassword = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+// USER FORGET PASSWORD: Completed
+export const ForgetPassword = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { email } = req.body.email as User
-    const find = await checkemail(email)
-    if (find) {
-      const content: string = ''
+    const { email } = req.body as User
+    const user = await checkemail(email)
+    if (user != null) {
+      const accesstoken = await resettokengen(user)
+      const url: string = `${process.env.FRONTEND_URL}/auth/token=${accesstoken}`
+      const content: string = `<!DOCTYPE html>
+      <html lang="en">
+      <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Password Reset</title>
+          <style>
+              body {
+                  font-family: Arial, sans-serif;
+                  background-color: #f4f4f4;
+                  margin: 0;
+                  padding: 0;
+              }
+              .container {
+                  max-width: 600px;
+                  margin: 0 auto;
+                  background-color: #ffffff;
+                  padding: 20px;
+                  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+              }
+              .header {
+                  text-align: center;
+                  padding: 10px 0;
+                  background-color: #007bff;
+                  color: #ffffff;
+              }
+              .content {
+                  padding: 20px;
+              }
+              .button {
+                  display: inline-block;
+                  padding: 10px 20px;
+                  color: #ffffff;
+                  background-color: #007bff;
+                  text-decoration: none;
+                  border-radius: 4px;
+                  text-align: center;
+              }
+              .footer {
+                  text-align: center;
+                  padding: 10px 0;
+                  background-color: #f4f4f4;
+                  color: #777777;
+              }
+          </style>
+      </head>
+      <body>
+          <div class="container">
+              <div class="header">
+                  <h1>Password Reset Request</h1>
+              </div>
+              <div class="content">
+                  <p>Hello,</p>
+                  <p>We received a request to reset your password. Click the button below to reset your password:</p>
+                  <p>
+                      <a href="${url}" class="button">Reset Password</a>
+                  </p>
+                  <p>If you did not request a password reset, please ignore this email or contact support if you have questions.</p>
+                  <p>Thank you,<br>The Team</p>
+              </div>
+              <div class="footer">
+                  <p>&copy; 2024 Your Company. All rights reserved.</p>
+              </div>
+          </div>
+      </body>
+      </html>`
       const subject: string = 'ACCOUNT PASSWORD RESET'
-      const from: string = ''
-      await reuseableMail(subject, content, email, from)
-      res.status(200).json({
-        message: 'Reset Code has been sent to your mail'
-      })
+      const from = process.env.FROM
+      if (from != null) {
+        await reusableMail(subject, content, email, from)
+        res.status(200).json({
+          message: 'Reset Code has been sent to your mail'
+        })
+      }
     }
   } catch (error) {
     if (error instanceof Error) {
       if (error.message === 'User not found') {
         res.status(409).json({
-          message: 'User does not exisy'
+          message: 'User does not exist'
         })
+      } else if (error.message.includes('mailing failed')) {
+        res.status(500).json({
+          message: error.message
+        })
+      } else {
+        next(error)
       }
-    } else {
-      next(error)
     }
   }
 }
 
-// USER RESET PASSWORD
+// USER VERIFICATION: Pending
+export const verifyUser = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+}
 
-// USER LOGOUT
+// USER RESET PASSWORD: Pending
+export const resetPassword = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
 
-// ACCESS TOKEN
+}
+// USER LOGOUT: Pending
+export const logout = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+
+}
+// ACCESS TOKEN: Completed
 const accesstokengen = async (data: User): Promise<string> => {
   if (process.env.AUTH_ACCESS_TOKEN_SECRET != null) {
     const accesstoken = jwt.sign({ id: data.user_id, email: data.email }, process.env.AUTH_ACCESS_TOKEN_SECRET, { expiresIn: process.env.AUTH_ACCESS_TOKEN_EXPIRY })
@@ -97,7 +191,17 @@ const accesstokengen = async (data: User): Promise<string> => {
   }
 }
 
-// REFRESH TOKEN
+const resettokengen = async (data: User): Promise<string> => {
+  if (process.env.AUTH_ACCESS_TOKEN_SECRET != null && data.user_id != null) {
+    const resettoken = jwt.sign({ id: data.user_id, email: data.email }, process.env.AUTH_ACCESS_TOKEN_SECRET, { expiresIn: '5mins' })
+    await storeResetToken(resettoken, data.user_id)
+    return resettoken
+  } else {
+    throw new Error('Missing environment variable: AUTH_REFRESH_TOKEN_SECRET')
+  }
+}
+
+// REFRESH TOKEN: Completed
 const refreshtokengen = async (data: User): Promise<string> => {
   if (process.env.AUTH_REFRESH_TOKEN_SECRET != null && data.user_id != null) {
     const refreshtoken = jwt.sign({ id: data.user_id, email: data.email }, process.env.AUTH_REFRESH_TOKEN_SECRET, {

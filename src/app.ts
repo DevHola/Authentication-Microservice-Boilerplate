@@ -1,6 +1,6 @@
 import dotenv from 'dotenv'
 import path from 'path'
-import express, { type Request, type Response, type NextFunction } from 'express'
+import express, { type Application, type Request, type Response, type NextFunction } from 'express'
 import cors from 'cors'
 import morgan from 'morgan'
 import hemlet from 'helmet'
@@ -8,7 +8,7 @@ import cookieparser from 'cookie-parser'
 import router from './routes'
 dotenv.config({ path: path.join(__dirname, '.env') })
 
-const app = express()
+const app: Application = express()
 app.use(cors())
 app.use(cookieparser())
 app.use(morgan('combined'))
