@@ -1,8 +1,9 @@
 import { type Request, type Response, type NextFunction } from 'express'
 import { type User } from '../interfaces/Interface'
-import { register, login, storeRefreshToken, checkemail, storeResetToken } from '../services/userService'
+import { register, login, storeRefreshToken, checkemail, storeResetToken, accountVerify, passwordReset } from '../services/userService'
 import { reusableMail } from '../config/config'
 import * as jwt from 'jsonwebtoken'
+import { type CustomRequest } from '../config/jwt'
 
 const refresh = {
   secret: process.env.AUTH_REFRESH_TOKEN_SECRET,
@@ -170,15 +171,41 @@ export const ForgetPassword = async (req: Request, res: Response, next: NextFunc
 }
 
 // USER VERIFICATION: Pending
-export const verifyUser = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const verifyUser = async (req: CustomRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    if ((req.user != null) && typeof req.user.user_id === 'string') {
+      const userId = req.user.user_id
+      await accountVerify(userId)
+      res.status(200).json({
+        message: 'Account Verified'
+      })
+    }
+  } catch (error) {
+    if (error instanceof Error) {
+      next()
+    }
+  }
 }
 
 // USER RESET PASSWORD: Pending
-export const resetPassword = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-
+export const resetPassword = async (req: CustomRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    if ((req.user != null) && typeof req.user.user_id === 'string') {
+      const { password } = req.body as User
+      const userId = req.user.user_id
+      await passwordReset(password, userId)
+      res.status(200).json({
+        message: 'Password Reset Successful'
+      })
+    }
+  } catch (error) {
+    if (error instanceof Error) {
+      next(error)
+    }
+  }
 }
 // USER LOGOUT: Pending
-export const logout = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const logout = async (req: CustomRequest, res: Response, next: NextFunction): Promise<void> => {
 
 }
 // ACCESS TOKEN: Completed

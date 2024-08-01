@@ -31,7 +31,7 @@ export const login = async (email: string, password: string): Promise<User> => {
   }
 }
 
-export const accountVerify = async (id: number): Promise<void> => {
+export const accountVerify = async (id: string): Promise<void> => {
   await pool.query('UPDATE users SET isverified=$1 WHERE user_id=$2', [true, id])
 }
 
