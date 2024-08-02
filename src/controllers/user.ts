@@ -245,6 +245,11 @@ export const logout = async (req: CustomRequest, res: Response, next: NextFuncti
       const userId: string = req.user.user_id
       const cookies: string = req.cookies.refreshTnk
       await accountLogout(userId, cookies)
+      res.clearCookie('refreshTnk', {
+        httpOnly: true,
+        secure: false,
+        sameSite: 'none'
+      })
       res.status(200).json({
         message: 'Logged out'
       })
@@ -258,6 +263,11 @@ export const Masterlogout = async (req: CustomRequest, res: Response, next: Next
     if ((req.user?.user_id) != null && req.cookies.refreshTnk != null) {
       const userId: string = req.user.user_id
       await MasterAccountLogout(userId)
+      res.clearCookie('refreshTnk', {
+        httpOnly: true,
+        secure: false,
+        sameSite: 'none'
+      })
       res.status(200).json({
         message: 'Garbage collected'
       })
