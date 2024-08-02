@@ -1,9 +1,7 @@
 import { type User } from '../interfaces/Interface'
 import { pool } from '../config/db'
-// import { type QueryResult } from 'pg'
 import * as bcrypt from 'bcrypt'
 import crypto from 'crypto'
-// import * as jwt from 'jsonwebtoken'
 
 export const register = async (user: User): Promise<void> => {
   const finduser = await pool.query('SELECT * FROM users WHERE email = $1', [user.email])
@@ -37,8 +35,14 @@ export const accountVerify = async (id: string): Promise<void> => {
 
 export const storeRefreshToken = async (token: string, id: string): Promise<void> => {
   if (process.env.AUTH_REFRESH_TOKEN_SECRET != null) {
+    const finduser = await pool.query('SELECT token FROM users WHERE user_id=$1', [id])
+    const user = finduser.rows[0] as User | undefined
+    if (user == null) {
+      throw new Error('User not found')
+    }
     const encrypttoken = crypto.createHmac('sha512', process.env.AUTH_REFRESH_TOKEN_SECRET).update(token).digest('hex')
-    await pool.query('UPDATE users SET token=$1 WHERE user_id=$2', [encrypttoken, id])
+    const newtokens = (user.token != null) ? [...user.token, encrypttoken] : [encrypttoken]
+    await pool.query('UPDATE users SET token=$1 WHERE user_id=$2', [newtokens, id])
   }
 }
 export const checkemail = async (email: string): Promise<User> => {
@@ -56,10 +60,29 @@ export const storeResetToken = async (token: string, id: string): Promise<void> 
     await pool.query('UPDATE users SET reset_token=$1 WHERE user_id=$2', [encrypttoken, id])
   }
 }
-// 50/50
 export const passwordReset = async (password: string, id: string): Promise<void> => {
-  await pool.query('UPDATE users SET password=$1, reset_token=$2 WHERE user_id=$3', [password, null, id])
+  const hashpassword = await bcrypt.hash(password, 10)
+  await pool.query('UPDATE users SET password=$1, reset_token=$2 WHERE user_id=$3', [hashpassword, null, id])
 }
-export const accountLogout = async (id: string): Promise<void> => {
-  await pool.query('UPDATE users SET token=$1, WHERE user_id=$2', [null, id])
+export const accountLogout = async (id: string, token: string): Promise<void> => {
+  const finduser = await pool.query('SELECT token FROM users WHERE user_id=$1', [id])
+  const user = finduser.rows[0] as User | undefined
+  if (user == null) {
+    throw new Error('User not found')
+  }
+  const userToken = user.token
+  if (process.env.AUTH_REFRESH_TOKEN_SECRET != null) {
+    const encrypttoken = crypto.createHmac('sha512', process.env.AUTH_REFRESH_TOKEN_SECRET).update(token).digest('hex')
+    const result = userToken?.filter((token) => token !== encrypttoken)
+    await pool.query('UPDATE users SET token=$1 WHERE user_id=$2', [result, id])
+  }
+}
+export const MasterAccountLogout = async (id: string): Promise<void> => {
+  const finduser = await pool.query('SELECT token FROM users WHERE user_id=$1', [id])
+  const user = finduser.rows[0] as User | undefined
+  if (user == null) {
+    throw new Error('User not found')
+  }
+  const usertoken: string[] = []
+  await pool.query('UPDATE users SET token=$1 WHERE user_id=$2', [usertoken, id])
 }

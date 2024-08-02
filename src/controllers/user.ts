@@ -1,9 +1,10 @@
 import { type Request, type Response, type NextFunction } from 'express'
 import { type User } from '../interfaces/Interface'
-import { register, login, storeRefreshToken, checkemail, storeResetToken, accountVerify, passwordReset } from '../services/userService'
+import { register, login, storeRefreshToken, checkemail, storeResetToken, accountVerify, passwordReset, accountLogout, MasterAccountLogout } from '../services/userService'
 import { reusableMail } from '../config/config'
 import * as jwt from 'jsonwebtoken'
 import { type CustomRequest } from '../config/jwt'
+import { validationResult } from 'express-validator/check'
 
 const refresh = {
   secret: process.env.AUTH_REFRESH_TOKEN_SECRET,
@@ -14,8 +15,15 @@ const refresh = {
 
 // CREATE USER: Completed
 export const Register = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  const error = validationResult(req)
+  if (!error.isEmpty()) {
+    res.status(400).json({ errors: error.array() })
+  }
   try {
-    const { name, email, password, usertype } = req.body as User
+    const name: string = req.body.name
+    const email: string = req.body.email
+    const password: string = req.body.password
+    const usertype: number = req.body.usertype
     await register({ name, email, password, usertype })
     res.status(200).json({
       message: `Registration successful. A verification mail has been sent to ${email}`
@@ -34,8 +42,13 @@ export const Register = async (req: Request, res: Response, next: NextFunction):
 }
 // USER LOGIN: Completed
 export const Login = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  const errors = validationResult(req)
+  if (!errors.isEmpty()) {
+    res.status(400).json({ errors: errors.array() })
+  }
   try {
-    const { email, password } = req.body as User
+    const email: string = req.body.email
+    const password: string = req.body.password
     const user: User = await login(email, password)
     const accesstoken = await accesstokengen(user)
     const refreshtoken = await refreshtokengen(user)
@@ -72,78 +85,85 @@ export const Login = async (req: Request, res: Response, next: NextFunction): Pr
 
 // USER FORGET PASSWORD: Completed
 export const ForgetPassword = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  const errors = validationResult(req)
+  if (!errors.isEmpty()) {
+    res.status(400).json({
+      error: errors.array()
+    })
+  }
   try {
-    const { email } = req.body as User
-    const user = await checkemail(email)
+    const email: string = req.body.email
+    const user: User = await checkemail(email)
     if (user != null) {
       const accesstoken = await resettokengen(user)
       const url: string = `${process.env.FRONTEND_URL}/auth/token=${accesstoken}`
+      console.log(accesstoken)
       const content: string = `<!DOCTYPE html>
-      <html lang="en">
-      <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Password Reset</title>
-          <style>
-              body {
-                  font-family: Arial, sans-serif;
-                  background-color: #f4f4f4;
-                  margin: 0;
-                  padding: 0;
-              }
-              .container {
-                  max-width: 600px;
-                  margin: 0 auto;
-                  background-color: #ffffff;
-                  padding: 20px;
-                  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-              }
-              .header {
-                  text-align: center;
-                  padding: 10px 0;
-                  background-color: #007bff;
-                  color: #ffffff;
-              }
-              .content {
-                  padding: 20px;
-              }
-              .button {
-                  display: inline-block;
-                  padding: 10px 20px;
-                  color: #ffffff;
-                  background-color: #007bff;
-                  text-decoration: none;
-                  border-radius: 4px;
-                  text-align: center;
-              }
-              .footer {
-                  text-align: center;
-                  padding: 10px 0;
-                  background-color: #f4f4f4;
-                  color: #777777;
-              }
-          </style>
-      </head>
-      <body>
-          <div class="container">
-              <div class="header">
-                  <h1>Password Reset Request</h1>
-              </div>
-              <div class="content">
-                  <p>Hello,</p>
-                  <p>We received a request to reset your password. Click the button below to reset your password:</p>
-                  <p>
-                      <a href="${url}" class="button">Reset Password</a>
-                  </p>
-                  <p>If you did not request a password reset, please ignore this email or contact support if you have questions.</p>
-                  <p>Thank you,<br>The Team</p>
-              </div>
-              <div class="footer">
-                  <p>&copy; 2024 Your Company. All rights reserved.</p>
-              </div>
-          </div>
-      </body>
-      </html>`
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Password Reset</title>
+            <style>
+                body {
+                    font-family: Arial, sans-serif;
+                    background-color: #f4f4f4;
+                    margin: 0;
+                    padding: 0;
+                }
+                .container {
+                    max-width: 600px;
+                    margin: 0 auto;
+                    background-color: #ffffff;
+                    padding: 20px;
+                    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+                }
+                .header {
+                    text-align: center;
+                    padding: 10px 0;
+                    background-color: #007bff;
+                    color: #ffffff;
+                }
+                .content {
+                    padding: 20px;
+                }
+                .button {
+                    display: inline-block;
+                    padding: 10px 20px;
+                    color: #ffffff;
+                    background-color: #007bff;
+                    text-decoration: none;
+                    border-radius: 4px;
+                    text-align: center;
+                }
+                .footer {
+                    text-align: center;
+                    padding: 10px 0;
+                    background-color: #f4f4f4;
+                    color: #777777;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>Password Reset Request</h1>
+                </div>
+                <div class="content">
+                    <p>Hello,</p>
+                    <p>We received a request to reset your password. Click the button below to reset your password:</p>
+                    <p>
+                        <a href="${url}" class="button">Reset Password</a>
+                    </p>
+                    <p>If you did not request a password reset, please ignore this email or contact support if you have questions.</p>
+                    <p>Thank you,<br>The Team</p>
+                </div>
+                <div class="footer">
+                    <p>&copy; 2024 Your Company. All rights reserved.</p>
+                </div>
+            </div>
+        </body>
+        </html>`
       const subject: string = 'ACCOUNT PASSWORD RESET'
       const from = process.env.FROM
       if (from != null) {
@@ -170,11 +190,17 @@ export const ForgetPassword = async (req: Request, res: Response, next: NextFunc
   }
 }
 
-// USER VERIFICATION: Pending
+// USER VERIFICATION: completed
 export const verifyUser = async (req: CustomRequest, res: Response, next: NextFunction): Promise<void> => {
+  const errors = validationResult(req)
+  if (!errors.isEmpty()) {
+    res.status(400).json({
+      errors: errors.array()
+    })
+  }
   try {
-    if ((req.user != null) && typeof req.user.user_id === 'string') {
-      const userId = req.user.user_id
+    if (req.user?.user_id != null) {
+      const userId: string = req.user.user_id
       await accountVerify(userId)
       res.status(200).json({
         message: 'Account Verified'
@@ -187,12 +213,18 @@ export const verifyUser = async (req: CustomRequest, res: Response, next: NextFu
   }
 }
 
-// USER RESET PASSWORD: Pending
+// USER RESET PASSWORD: Completed
 export const resetPassword = async (req: CustomRequest, res: Response, next: NextFunction): Promise<void> => {
+  const errors = validationResult(req)
+  if (!errors.isEmpty()) {
+    res.status(400).json({
+      errors: errors.array()
+    })
+  }
   try {
-    if ((req.user != null) && typeof req.user.user_id === 'string') {
-      const { password } = req.body as User
-      const userId = req.user.user_id
+    if (req.user?.user_id != null) {
+      const password: string = req.body.password
+      const userId: string = req.user.user_id
       await passwordReset(password, userId)
       res.status(200).json({
         message: 'Password Reset Successful'
@@ -200,14 +232,41 @@ export const resetPassword = async (req: CustomRequest, res: Response, next: Nex
     }
   } catch (error) {
     if (error instanceof Error) {
-      next(error)
+      res.status(500).json({
+        error: error.message
+      })
     }
   }
 }
 // USER LOGOUT: Pending
 export const logout = async (req: CustomRequest, res: Response, next: NextFunction): Promise<void> => {
-
+  try {
+    if ((req.user?.user_id) != null && req.cookies.refreshTnk != null) {
+      const userId: string = req.user.user_id
+      const cookies: string = req.cookies.refreshTnk
+      await accountLogout(userId, cookies)
+      res.status(200).json({
+        message: 'Logged out'
+      })
+    }
+  } catch (error) {
+    next(error)
+  }
 }
+export const Masterlogout = async (req: CustomRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    if ((req.user?.user_id) != null && req.cookies.refreshTnk != null) {
+      const userId: string = req.user.user_id
+      await MasterAccountLogout(userId)
+      res.status(200).json({
+        message: 'Garbage collected'
+      })
+    }
+  } catch (error) {
+    next(error)
+  }
+}
+
 // ACCESS TOKEN: Completed
 const accesstokengen = async (data: User): Promise<string> => {
   if (process.env.AUTH_ACCESS_TOKEN_SECRET != null) {

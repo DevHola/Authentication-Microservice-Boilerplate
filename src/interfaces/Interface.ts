@@ -8,6 +8,7 @@ export interface User {
   email: string
   password: string
   usertype?: number
+  token?: string[] | null
 }
 // export interface InnerUser extends User {
 //   user_id?: string

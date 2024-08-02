@@ -21,15 +21,18 @@ export const verifyAccessToken = async (req: CustomRequest, res: Response, next:
       const decoded = jwt.verify(token, process.env.AUTH_ACCESS_TOKEN_SECRET) as DecodedToken
       const user = await checkemail(decoded.email)
       if (user == null) {
-        throw new Error('Authentication failed')
+        res.status(401).json({ message: 'Authentication failed' })
       }
-      console.log(user)
       req.user = user
       next()
     } catch (error) {
-      next(error)
+      if (error instanceof Error) {
+        res.status(500).json({
+          error: error.message
+        })
+      }
     }
   } else {
-    throw new Error('Missing Access Credentials')
+    res.status(401).json({ message: 'Missing Access Credentials' })
   }
 }
