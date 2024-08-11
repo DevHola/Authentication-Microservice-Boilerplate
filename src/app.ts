@@ -1,6 +1,11 @@
 import dotenv from 'dotenv'
 import path from 'path'
-import express, { type Application, type Request, type Response, type NextFunction } from 'express'
+import express, {
+  type Application,
+  type Request,
+  type Response,
+  type NextFunction
+} from 'express'
 import cors from 'cors'
 import morgan from 'morgan'
 import hemlet from 'helmet'

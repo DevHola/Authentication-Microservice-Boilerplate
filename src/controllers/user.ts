@@ -238,7 +238,7 @@ export const resetPassword = async (req: CustomRequest, res: Response, next: Nex
     }
   }
 }
-// USER LOGOUT: Pending
+// USER LOGOUT: COMPLETED
 export const logout = async (req: CustomRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     if ((req.user?.user_id) != null && req.cookies.refreshTnk != null) {
@@ -258,6 +258,7 @@ export const logout = async (req: CustomRequest, res: Response, next: NextFuncti
     next(error)
   }
 }
+// COMPLETED
 export const Masterlogout = async (req: CustomRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     if ((req.user?.user_id) != null && req.cookies.refreshTnk != null) {
@@ -277,6 +278,7 @@ export const Masterlogout = async (req: CustomRequest, res: Response, next: Next
   }
 }
 
+// TOKEN REFRESH: PENDING
 // ACCESS TOKEN: Completed
 const accesstokengen = async (data: User): Promise<string> => {
   if (process.env.AUTH_ACCESS_TOKEN_SECRET != null) {
