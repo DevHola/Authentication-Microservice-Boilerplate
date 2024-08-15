@@ -190,6 +190,26 @@ export const ForgetPassword = async (req: Request, res: Response, next: NextFunc
   }
 }
 
+export const tokenverify = async (req: CustomRequest, res: Response, next: NextFunction): Promise<void> => {
+  const errors = validationResult(req)
+  if (!errors.isEmpty()) {
+    res.status(400).json({
+      error: errors.array()
+    })
+  }
+  try {
+    if (req.user?.user_id != null) {
+      res.status(200).json({
+        user: req.user
+      })
+    } else {
+      res.status(401).json({ message: 'Unauthorized: User ID is missing' })
+    }
+  } catch (error) {
+    next(error)
+  }
+}
+
 // USER VERIFICATION: completed
 export const verifyUser = async (req: CustomRequest, res: Response, next: NextFunction): Promise<void> => {
   const errors = validationResult(req)

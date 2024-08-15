@@ -10,7 +10,8 @@ import cors from 'cors'
 import morgan from 'morgan'
 import hemlet from 'helmet'
 import cookieparser from 'cookie-parser'
-import router from './routes'
+import router from './routes/index.private'
+import publicrouter from './routes/index.public'
 dotenv.config({ path: path.join(__dirname, '.env') })
 
 const app: Application = express()
@@ -25,7 +26,8 @@ app.use((error: Error, req: Request, res: Response, next: NextFunction) => {
     message: error.stack
   })
 })
-app.use('/api', router)
+app.use('/api/auth/protected', router)
+app.use('/api/auth/public', publicrouter)
 const port = process.env.PORTDEV
 
 app.listen(port, () => {
