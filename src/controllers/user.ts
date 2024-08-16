@@ -1,9 +1,9 @@
 import { type Request, type Response, type NextFunction } from 'express'
 import { type User } from '../interfaces/Interface'
-import { register, login, storeRefreshToken, checkemail, storeResetToken, accountVerify, passwordReset, accountLogout, MasterAccountLogout } from '../services/userService'
+import { register, login, storeRefreshToken, checkemail, storeResetToken, accountVerify, passwordReset, accountLogout, MasterAccountLogout, compareRefreshtokens } from '../services/userService'
 import { reusableMail } from '../config/config'
 import * as jwt from 'jsonwebtoken'
-import { type CustomRequest } from '../config/jwt'
+import { type DecodedToken, type CustomRequest } from '../config/jwt'
 import { validationResult } from 'express-validator/check'
 
 const refresh = {
@@ -210,6 +210,49 @@ export const tokenverify = async (req: CustomRequest, res: Response, next: NextF
   }
 }
 
+export const refreshAccessToken = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  const errors = validationResult(req)
+  if (!errors.isEmpty()) {
+    res.status(400).json({
+      errors: errors.array()
+    })
+  }
+  const acctoken = req.body.token as string
+  const reftoken = req.body.rtoken as string
+  try {
+    const user = await validateAccessToken(acctoken)
+    const id = user.user_id
+    if (id != null) {
+      const checkreftoken = await validateRefreshToken(id, reftoken)
+      if (!checkreftoken) {
+        res.status(401).json({
+          error: 'authentication failed'
+        })
+      }
+      const accesstoken = await accesstokengen(user)
+      res.status(200).json({
+        token: accesstoken
+      })
+    }
+  } catch (error) {
+    if (error instanceof Error) {
+      if (error.message === 'Authentication failed') {
+        res.status(401).json({
+          error: 'Authentication Failed'
+        })
+      } else if (error.message === 'jwt expired') {
+        res.status(401).json({
+          error: 'Authentication Failed'
+        })
+      } else if (error.message === 'invalid token') {
+        res.status(401).json({
+          error: 'Authentication Failed'
+        })
+      }
+    }
+  }
+}
+
 // USER VERIFICATION: completed
 export const verifyUser = async (req: CustomRequest, res: Response, next: NextFunction): Promise<void> => {
   const errors = validationResult(req)
@@ -298,8 +341,37 @@ export const Masterlogout = async (req: CustomRequest, res: Response, next: Next
   }
 }
 
-// TOKEN REFRESH: PENDING
-// ACCESS TOKEN: Completed
+const validateAccessToken = async (token: string): Promise<User> => {
+  const secret = process.env.AUTH_ACCESS_TOKEN_SECRET
+  if (secret != null) {
+    const decoded = jwt.verify(token, secret, { ignoreExpiration: true }) as DecodedToken
+    const user = await checkemail(decoded.email)
+    if (user == null) {
+      throw new Error('Authentication failed')
+    }
+    return user
+  } else {
+    throw new Error('Authentication failed')
+  }
+}
+
+const validateRefreshToken = async (id: string, token: string): Promise<boolean> => {
+  const secret = process.env.AUTH_REFRESH_TOKEN_SECRET
+  if (secret != null) {
+    const comparetoken = await compareRefreshtokens(id, token)
+    if (!comparetoken) {
+      throw new Error('authentication failed')
+    }
+    const decoded = jwt.verify(token, secret) as DecodedToken
+    const user = await checkemail(decoded.email)
+    if (user == null) {
+      throw new Error('Authentication failed')
+    }
+    return true
+  }
+  throw new Error('Authentication failed')
+}
+
 const accesstokengen = async (data: User): Promise<string> => {
   if (process.env.AUTH_ACCESS_TOKEN_SECRET != null) {
     const accesstoken = jwt.sign({ id: data.user_id, email: data.email }, process.env.AUTH_ACCESS_TOKEN_SECRET, { expiresIn: process.env.AUTH_ACCESS_TOKEN_EXPIRY })

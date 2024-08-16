@@ -31,6 +31,7 @@ export const userTypeUpdate = async (req: Request, res: Response, next: NextFunc
 // GET ALL USER TYPES
 export const AllUserType = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    console.log(req)
     const userstype = await getAllUserType()
     res.status(200).json(
       userstype.rows

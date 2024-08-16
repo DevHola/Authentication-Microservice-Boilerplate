@@ -86,3 +86,23 @@ export const MasterAccountLogout = async (id: string): Promise<void> => {
   const usertoken: string[] = []
   await pool.query('UPDATE users SET token=$1 WHERE user_id=$2', [usertoken, id])
 }
+export const compareRefreshtokens = async (id: string, toenctoken: string): Promise<boolean> => {
+  const finduser = await pool.query('SELECT token FROM users WHERE user_id=$1', [id])
+  const user = finduser.rows[0] as User | undefined
+  if (user == null) {
+    throw new Error('Authentication failed')
+  }
+  const secret = process.env.AUTH_REFRESH_TOKEN_SECRET
+  if (secret != null) {
+    const encrypttoken = crypto.createHmac('sha512', secret).update(toenctoken).digest('hex')
+    const userToken = user.token
+    const token = userToken?.find((token) => token === encrypttoken)
+    if (token != null && token.length > 0) {
+      return true
+    } else {
+      return false
+    }
+  } else {
+    return false
+  }
+}

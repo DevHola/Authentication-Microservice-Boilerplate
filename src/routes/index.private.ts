@@ -5,11 +5,11 @@ import { verifyUser, resetPassword, logout, Masterlogout, tokenverify } from '..
 import { verifyAccessToken } from '../config/jwt'
 import { resetPasswordValidation } from '../validations/user.validation'
 const router = Router()
-router.post('/usertype', userTypeCreation)
-router.get('/usertype/:id', getUType)
-router.get('/usertypes', AllUserType)
-router.delete('/usertype', deleteUType)
-router.put('/usertype/:id', userTypeUpdate)
+router.post('/usertype', verifyAccessToken, userTypeCreation)
+router.get('/usertype/:id', verifyAccessToken, getUType)
+router.get('/usertypes', verifyAccessToken, AllUserType)
+router.delete('/usertype', verifyAccessToken, deleteUType)
+router.put('/usertype/:id', verifyAccessToken, userTypeUpdate)
 router.post('/token', verifyAccessToken, tokenverify)
 router.post('/verification', verifyAccessToken, verifyUser)
 router.post('/password/reset', resetPasswordValidation, verifyAccessToken, resetPassword)
