@@ -1,7 +1,7 @@
 import { type Request, type Response, type NextFunction } from 'express'
 import jwt from 'jsonwebtoken'
 import { type User } from '../interfaces/Interface'
-import { checkemail } from '../services/userService'
+import { getuserbyemail } from '../services/userService'
 export interface CustomRequest extends Request {
   user?: User
 }
@@ -20,7 +20,7 @@ export const verifyAccessToken = async (req: CustomRequest, res: Response, next:
     try {
       const decoded = jwt.verify(token, process.env.AUTH_ACCESS_TOKEN_SECRET) as DecodedToken
       console.log(decoded)
-      const user = await checkemail(decoded.email)
+      const user = await getuserbyemail(decoded.email)
       if (user == null) {
         res.status(401).json({ message: 'Authentication failed' })
       }
