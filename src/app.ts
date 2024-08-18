@@ -1,13 +1,22 @@
-import express, { type Request, type Response, type NextFunction } from 'express'
-import cors from 'cors'
-import morgan from 'morgan'
 import dotenv from 'dotenv'
 import path from 'path'
+import express, {
+  type Application,
+  type Request,
+  type Response,
+  type NextFunction
+} from 'express'
+import cors from 'cors'
+import morgan from 'morgan'
 import hemlet from 'helmet'
-import router from './routes'
+import cookieparser from 'cookie-parser'
+import router from './routes/index.private'
+import publicrouter from './routes/index.public'
 dotenv.config({ path: path.join(__dirname, '.env') })
-const app = express()
+
+const app: Application = express()
 app.use(cors())
+app.use(cookieparser())
 app.use(morgan('combined'))
 app.use(hemlet())
 app.use(express.json())
@@ -17,7 +26,8 @@ app.use((error: Error, req: Request, res: Response, next: NextFunction) => {
     message: error.stack
   })
 })
-app.use('/api', router)
+app.use('/api/auth/protected', router)
+app.use('/api/auth/public', publicrouter)
 const port = process.env.PORTDEV
 
 app.listen(port, () => {
