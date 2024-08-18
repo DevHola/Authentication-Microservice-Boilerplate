@@ -4,28 +4,31 @@ import * as bcrypt from 'bcrypt'
 import crypto from 'crypto'
 
 export const register = async (user: User): Promise<void> => {
-  const finduser = await pool.query('SELECT * FROM users WHERE email = $1', [user.email])
-  const users = finduser.rows[0] as User | undefined
-  if (users != null) {
-    throw new Error('user already exist')
+  const hashpassword = await bcrypt.hash(user.password, 10)
+  await pool.query('INSERT INTO users (name, email, password, usertype) Values ($1,$2,$3,$4)', [user.name, user.email, hashpassword, user.usertype])
+}
+
+export const checkemailexist = async (email: string): Promise<boolean> => {
+  const finduser = await pool.query('SELECT user_id, name, email FROM users WHERE email=$1', [email])
+  const user = finduser.rows[0] as User | undefined
+  if (user == null) {
+    return false
   } else {
-    const hashpassword = await bcrypt.hash(user.password, 10)
-    await pool.query('INSERT INTO users (name, email, password, usertype) Values ($1,$2,$3,$4)', [user.name, user.email, hashpassword, user.usertype])
+    return true
   }
 }
 
-export const login = async (email: string, password: string): Promise<User> => {
-  const finduser = await pool.query('SELECT user_id, email, password FROM users WHERE email = $1', [email])
+export const comparePassword = async (password: string, email: string): Promise<boolean> => {
+  const finduser = await pool.query('SELECT password FROM users WHERE email=$1', [email])
   const user = finduser.rows[0] as User | undefined
   if (user == null) {
-    throw new Error('User not found')
+    throw new Error('Authentication failed')
+  }
+  const passwordcompare = await bcrypt.compare(password, user.password)
+  if (!passwordcompare) {
+    return false
   } else {
-    const passwordcompare = await bcrypt.compare(password, user.password)
-    if (!passwordcompare) {
-      throw new Error('incorrect credentials')
-    } else {
-      return user
-    }
+    return true
   }
 }
 
@@ -45,7 +48,7 @@ export const storeRefreshToken = async (token: string, id: string): Promise<void
     await pool.query('UPDATE users SET token=$1 WHERE user_id=$2', [newtokens, id])
   }
 }
-export const checkemail = async (email: string): Promise<User> => {
+export const getuserbyemail = async (email: string): Promise<User> => {
   const finduser = await pool.query('SELECT user_id, name, email FROM users WHERE email=$1', [email])
   const user = finduser.rows[0] as User | undefined
   if (user == null) {

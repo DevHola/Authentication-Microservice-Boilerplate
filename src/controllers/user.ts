@@ -1,6 +1,6 @@
 import { type Request, type Response, type NextFunction } from 'express'
 import { type User } from '../interfaces/Interface'
-import { register, login, storeRefreshToken, checkemail, storeResetToken, accountVerify, passwordReset, accountLogout, MasterAccountLogout, compareRefreshtokens } from '../services/userService'
+import { register, comparePassword, storeRefreshToken, getuserbyemail, storeResetToken, accountVerify, passwordReset, accountLogout, MasterAccountLogout, compareRefreshtokens, checkemailexist } from '../services/userService'
 import { reusableMail } from '../config/config'
 import * as jwt from 'jsonwebtoken'
 import { type DecodedToken, type CustomRequest } from '../config/jwt'
@@ -24,6 +24,10 @@ export const Register = async (req: Request, res: Response, next: NextFunction):
     const email: string = req.body.email
     const password: string = req.body.password
     const usertype: number = req.body.usertype
+    const check = await checkemailexist(email)
+    if (check) {
+      throw new Error('user already exist')
+    }
     await register({ name, email, password, usertype })
     res.status(200).json({
       message: `Registration successful. A verification mail has been sent to ${email}`
@@ -49,7 +53,14 @@ export const Login = async (req: Request, res: Response, next: NextFunction): Pr
   try {
     const email: string = req.body.email
     const password: string = req.body.password
-    const user: User = await login(email, password)
+    const user: User = await getuserbyemail(email)
+    if (user === null || user === null) {
+      throw new Error('User not found')
+    }
+    const compare = await comparePassword(password, user.email)
+    if (!compare) {
+      throw new Error('incorrect credentials')
+    }
     const accesstoken = await accesstokengen(user)
     const refreshtoken = await refreshtokengen(user)
     res.cookie(
@@ -93,7 +104,7 @@ export const ForgetPassword = async (req: Request, res: Response, next: NextFunc
   }
   try {
     const email: string = req.body.email
-    const user: User = await checkemail(email)
+    const user: User = await getuserbyemail(email)
     if (user != null) {
       const accesstoken = await resettokengen(user)
       const url: string = `${process.env.FRONTEND_URL}/auth/token=${accesstoken}`
@@ -345,7 +356,7 @@ const validateAccessToken = async (token: string): Promise<User> => {
   const secret = process.env.AUTH_ACCESS_TOKEN_SECRET
   if (secret != null) {
     const decoded = jwt.verify(token, secret, { ignoreExpiration: true }) as DecodedToken
-    const user = await checkemail(decoded.email)
+    const user = await getuserbyemail(decoded.email)
     if (user == null) {
       throw new Error('Authentication failed')
     }
@@ -363,7 +374,7 @@ const validateRefreshToken = async (id: string, token: string): Promise<boolean>
       throw new Error('authentication failed')
     }
     const decoded = jwt.verify(token, secret) as DecodedToken
-    const user = await checkemail(decoded.email)
+    const user = await getuserbyemail(decoded.email)
     if (user == null) {
       throw new Error('Authentication failed')
     }
