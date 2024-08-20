@@ -1,11 +1,12 @@
 import { type Request, type Response, type NextFunction } from 'express'
 import { type User } from '../interfaces/Interface'
-import { register, comparePassword, storeRefreshToken, getuserbyemail, storeResetToken, accountVerify, passwordReset, accountLogout, MasterAccountLogout, compareRefreshtokens, checkemailexist } from '../services/userService'
+import { register, comparePassword, getuserbyemail, accountVerify, passwordReset, checkemailexist } from '../services/userService'
 import { reusableMail } from '../config/config'
 import * as jwt from 'jsonwebtoken'
 import { type DecodedToken, type CustomRequest } from '../config/jwt'
 import { validationResult } from 'express-validator/check'
-
+import { StatusCodes } from 'http-status-codes'
+import { MasterAccountLogout, storetoken, accountLogout, compareRefreshtokens } from '../services/tokenService'
 const refresh = {
   secret: process.env.AUTH_REFRESH_TOKEN_SECRET,
   cookie: {
@@ -17,7 +18,7 @@ const refresh = {
 export const Register = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const error = validationResult(req)
   if (!error.isEmpty()) {
-    res.status(400).json({ errors: error.array() })
+    res.status(StatusCodes.NOT_FOUND).json({ errors: error.array() })
   }
   try {
     const name: string = req.body.name
@@ -25,10 +26,14 @@ export const Register = async (req: Request, res: Response, next: NextFunction):
     const password: string = req.body.password
     const usertype: number = req.body.usertype
     const check = await checkemailexist(email)
+    // https://www.npmjs.com/package/response-status-code
     if (check) {
       throw new Error('user already exist')
     }
-    await register({ name, email, password, usertype })
+    const user = await register({ name, email, password, usertype })
+    const verifytoken = await verifytokengen(user)
+    const data = await verificationmail(verifytoken)
+    await reusableMail(data.subject, data.content, email, data.from)
     res.status(200).json({
       message: `Registration successful. A verification mail has been sent to ${email}`
     })
@@ -61,22 +66,32 @@ export const Login = async (req: Request, res: Response, next: NextFunction): Pr
     if (!compare) {
       throw new Error('incorrect credentials')
     }
-    const accesstoken = await accesstokengen(user)
-    const refreshtoken = await refreshtokengen(user)
-    res.cookie(
-      refresh.cookie.name,
-      refreshtoken,
-      {
-        httpOnly: true,
-        sameSite: 'none',
-        secure: false,
-        maxAge: 24 * 60 * 60 * 1000
+    if (user.isverified === false) {
+      const verifytoken = await verifytokengen(user)
+      const data = await verificationmail(verifytoken)
+      await reusableMail(data.subject, data.content, email, data.from)
+      res.status(403).json({
+        message: 'Your email address is not verified. A verification mail has been sent to your mail.'
+      })
+    } else {
+      const accesstoken = await accesstokengen(user)
+      const refreshtoken = await refreshtokengen(user)
+      console.log(refreshtoken)
+      res.cookie(
+        refresh.cookie.name,
+        refreshtoken,
+        {
+          httpOnly: true,
+          sameSite: 'none',
+          secure: false,
+          maxAge: 24 * 60 * 60 * 1000
 
-      }
-    )
-    res.status(200).json({
-      token: accesstoken
-    })
+        }
+      )
+      res.status(200).json({
+        token: accesstoken
+      })
+    }
   } catch (error) {
     if (error instanceof Error) {
       if (error.message === 'User not found') {
@@ -107,8 +122,8 @@ export const ForgetPassword = async (req: Request, res: Response, next: NextFunc
     const user: User = await getuserbyemail(email)
     if (user != null) {
       const accesstoken = await resettokengen(user)
-      const url: string = `${process.env.FRONTEND_URL}/auth/token=${accesstoken}`
       console.log(accesstoken)
+      const url: string = `${process.env.FRONTEND_URL}/auth/token=${accesstoken}`
       const content: string = `<!DOCTYPE html>
         <html lang="en">
         <head>
@@ -276,6 +291,7 @@ export const verifyUser = async (req: CustomRequest, res: Response, next: NextFu
     if (req.user?.user_id != null) {
       const userId: string = req.user.user_id
       await accountVerify(userId)
+      await MasterAccountLogout(userId)
       res.status(200).json({
         message: 'Account Verified'
       })
@@ -300,6 +316,7 @@ export const resetPassword = async (req: CustomRequest, res: Response, next: Nex
       const password: string = req.body.password
       const userId: string = req.user.user_id
       await passwordReset(password, userId)
+      await MasterAccountLogout(userId)
       res.status(200).json({
         message: 'Password Reset Successful'
       })
@@ -392,10 +409,21 @@ const accesstokengen = async (data: User): Promise<string> => {
   }
 }
 
+const verifytokengen = async (data: User): Promise<string> => {
+  if (process.env.AUTH_ACCESS_TOKEN_SECRET != null && data.user_id != null) {
+    const verifytoken = jwt.sign({ id: data.user_id, email: data.email }, process.env.AUTH_ACCESS_TOKEN_SECRET, { expiresIn: '5mins' })
+    const tokenID: number = 3
+    await storetoken(verifytoken, tokenID, data.user_id)
+    return verifytoken
+  } else {
+    throw new Error('Missing environment variable: AUTH_REFRESH_TOKEN_SECRET')
+  }
+}
 const resettokengen = async (data: User): Promise<string> => {
   if (process.env.AUTH_ACCESS_TOKEN_SECRET != null && data.user_id != null) {
     const resettoken = jwt.sign({ id: data.user_id, email: data.email }, process.env.AUTH_ACCESS_TOKEN_SECRET, { expiresIn: '5mins' })
-    await storeResetToken(resettoken, data.user_id)
+    const tokenID: number = 2
+    await storetoken(resettoken, tokenID, data.user_id)
     return resettoken
   } else {
     throw new Error('Missing environment variable: AUTH_REFRESH_TOKEN_SECRET')
@@ -408,9 +436,96 @@ const refreshtokengen = async (data: User): Promise<string> => {
     const refreshtoken = jwt.sign({ id: data.user_id, email: data.email }, process.env.AUTH_REFRESH_TOKEN_SECRET, {
       expiresIn: process.env.AUTH_REFRESH_TOKEN_EXPIRY
     })
-    await storeRefreshToken(refreshtoken, data.user_id)
+    const tokenID: number = 1
+    await storetoken(refreshtoken, tokenID, data.user_id)
     return refreshtoken
   } else {
     throw new Error('Missing environment variable: AUTH_REFRESH_TOKEN_SECRET')
   }
+}
+
+interface mail {
+  url: string
+  content: string
+  subject: string
+  from: string
+}
+
+const verificationmail = async (accesstoken: string): Promise<mail> => {
+  const url: string = `${process.env.FRONTEND_URL}/auth/token=${accesstoken}`
+  const content: string = `<!DOCTYPE html>
+  <html lang="en">
+  <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Email Verification</title>
+      <style>
+          body {
+              font-family: Arial, sans-serif;
+              background-color: #f4f4f4;
+              margin: 0;
+              padding: 0;
+          }
+          .container {
+              max-width: 600px;
+              margin: 0 auto;
+              background-color: #ffffff;
+              padding: 20px;
+              box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+          }
+          .header {
+              text-align: center;
+              padding: 10px 0;
+              background-color: #007bff;
+              color: #ffffff;
+          }
+          .content {
+              padding: 20px;
+          }
+          .button {
+              display: inline-block;
+              padding: 10px 20px;
+              color: #ffffff;
+              background-color: #007bff;
+              text-decoration: none;
+              border-radius: 4px;
+              text-align: center;
+          }
+          .footer {
+              text-align: center;
+              padding: 10px 0;
+              background-color: #f4f4f4;
+              color: #777777;
+          }
+      </style>
+  </head>
+  <body>
+      <div class="container">
+          <div class="header">
+              <h1>Email Verification</h1>
+          </div>
+          <div class="content">
+              <p>Hello,</p>
+              <p>Thank you for registering with us. Please click the button below to verify your email address:</p>
+              <p>
+                  <a href="${url}" class="button">Verify Email</a>
+              </p>
+              <p>If you did not sign up for this account, please ignore this email or contact support if you have questions.</p>
+              <p>Thank you,<br>The Team</p>
+          </div>
+          <div class="footer">
+              <p>&copy; 2024 Your Company. All rights reserved.</p>
+          </div>
+      </div>
+  </body>
+  </html>`
+  const subject: string = 'ACCOUNT PASSWORD RESET'
+  const from = process.env.FROM ?? 'no-reply@yourcompany.com'
+  const data: mail = {
+    url,
+    content,
+    subject,
+    from
+  }
+  return data
 }

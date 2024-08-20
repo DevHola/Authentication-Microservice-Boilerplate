@@ -5,6 +5,6 @@
       "password": "12345678",
       "host": "localhost",
       "database": "Banking",
-      "port": "5433"
+      "port": "5432"
     }
   }

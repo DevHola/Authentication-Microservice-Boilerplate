@@ -2,6 +2,7 @@ import { type Request, type Response, type NextFunction } from 'express'
 import jwt from 'jsonwebtoken'
 import { type User } from '../interfaces/Interface'
 import { getuserbyemail } from '../services/userService'
+import { compareresetverifytokens } from '../services/tokenService'
 export interface CustomRequest extends Request {
   user?: User
 }
@@ -19,9 +20,9 @@ export const verifyAccessToken = async (req: CustomRequest, res: Response, next:
     }
     try {
       const decoded = jwt.verify(token, process.env.AUTH_ACCESS_TOKEN_SECRET) as DecodedToken
-      console.log(decoded)
+      const checktoken = await compareresetverifytokens(decoded._id, token)
       const user = await getuserbyemail(decoded.email)
-      if (user == null) {
+      if (user == null || !checktoken) {
         res.status(401).json({ message: 'Authentication failed' })
       }
       req.user = user
