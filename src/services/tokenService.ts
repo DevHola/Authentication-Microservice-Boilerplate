@@ -43,7 +43,7 @@ export const compareRefreshtokens = async (id: string, toenctoken: string): Prom
   const secret = process.env.AUTH_REFRESH_TOKEN_SECRET
   if (secret != null) {
     const encrypttoken = crypto.createHmac('sha512', secret).update(toenctoken).digest('hex')
-    const findtoken = await pool.query('SELECT * FROM tokens WHERE user_id=$1 AND hash=$2 AND token_type_id=1', [id, encrypttoken])
+    const findtoken = await pool.query('SELECT tokens.*, token_type.name FROM tokens INNER JOIN token_type ON tokens.token_type_id = token_type.id WHERE tokens.user_id=$1 AND tokens.hash=$2 AND tokens.token_type_id=1', [id, encrypttoken])
     const token = findtoken.rows[0] as token | undefined
     if (token !== null) {
       return true
