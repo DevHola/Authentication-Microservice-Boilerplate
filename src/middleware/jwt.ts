@@ -2,13 +2,14 @@ import { type Request, type Response, type NextFunction } from 'express'
 import jwt from 'jsonwebtoken'
 import { type User } from '../interfaces/Interface'
 import { getuserbyemail } from '../services/userService'
-import { compareresetverifytokens } from '../services/tokenService'
+// import { compareresetverifytokens } from '../services/tokenService'
 export interface CustomRequest extends Request {
   user?: User
 }
 export interface DecodedToken {
   _id: string
   email: string
+  name: string
 }
 
 export const verifyAccessToken = async (req: CustomRequest, res: Response, next: NextFunction): Promise<void> => {
@@ -20,9 +21,9 @@ export const verifyAccessToken = async (req: CustomRequest, res: Response, next:
     }
     try {
       const decoded = jwt.verify(token, process.env.AUTH_ACCESS_TOKEN_SECRET) as DecodedToken
-      const checktoken = await compareresetverifytokens(decoded._id, token)
+      // const checktoken = await compareresetverifytokens(decoded._id, token)
       const user = await getuserbyemail(decoded.email)
-      if (user == null || !checktoken) {
+      if (user == null) {
         res.status(401).json({ message: 'Authentication failed' })
       }
       req.user = user

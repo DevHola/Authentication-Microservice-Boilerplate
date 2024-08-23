@@ -1,20 +1,13 @@
 import { type Request, type Response, type NextFunction } from 'express'
-import { type User } from '../interfaces/Interface'
+import { type mail, type User } from '../interfaces/Interface'
 import { register, comparePassword, getuserbyemail, accountVerify, passwordReset, checkemailexist } from '../services/userService'
 import { reusableMail } from '../config/config'
-import * as jwt from 'jsonwebtoken'
-import { type DecodedToken, type CustomRequest } from '../config/jwt'
+import { type CustomRequest } from '../middleware/jwt'
 import { validationResult } from 'express-validator/check'
 import { StatusCodes } from 'http-status-codes'
-import { MasterAccountLogout, storetoken, accountLogout, compareRefreshtokens } from '../services/tokenService'
-const refresh = {
-  secret: process.env.AUTH_REFRESH_TOKEN_SECRET,
-  cookie: {
-    name: 'refreshTnk'
-  }
-}
+import { deleteRVToken, storeRefreshToken } from '../config/redis'
+import { accesstokengen, refreshtokengen, resettokengen, validateAccessToken, validateRefreshToken, validateresetToken, validateverifyToken, verifytokengen } from '../config/reuseables'
 
-// CREATE USER: Completed
 export const Register = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const error = validationResult(req)
   if (!error.isEmpty()) {
@@ -49,8 +42,6 @@ export const Register = async (req: Request, res: Response, next: NextFunction):
     }
   }
 }
-
-// USER LOGIN: Completed
 export const Login = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
@@ -69,6 +60,7 @@ export const Login = async (req: Request, res: Response, next: NextFunction): Pr
     }
     if (user.isverified === false) {
       const verifytoken = await verifytokengen(user)
+      console.log(verifytoken)
       // create separate endpoint to send the mail maybe it times to use those message queues
       // const data = await verificationmail(verifytoken)
       // await reusableMail(data.subject, data.content, email, data.from)
@@ -78,20 +70,12 @@ export const Login = async (req: Request, res: Response, next: NextFunction): Pr
         token: verifytoken
       })
     } else {
-      const accesstoken = await accesstokengen(user)
-      const refreshtoken = await refreshtokengen(user)
-      console.log(refreshtoken)
-      res.cookie(
-        refresh.cookie.name,
-        refreshtoken,
-        {
-          httpOnly: true,
-          sameSite: 'none',
-          secure: false,
-          maxAge: 24 * 60 * 60 * 1000
+      const [accesstoken, refreshtoken] = await Promise.all([accesstokengen(user), refreshtokengen(user)])
 
-        }
-      )
+      console.log(refreshtoken)
+      if ((user.user_id) != null) {
+        await storeRefreshToken(accesstoken, user.user_id, refreshtoken)
+      }
       res.status(200).json({
         token: accesstoken,
         status: true
@@ -113,8 +97,6 @@ export const Login = async (req: Request, res: Response, next: NextFunction): Pr
     }
   }
 }
-
-// USER FORGET PASSWORD: Completed
 export const ForgetPassword = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
@@ -126,9 +108,9 @@ export const ForgetPassword = async (req: Request, res: Response, next: NextFunc
     const email: string = req.body.email
     const user: User = await getuserbyemail(email)
     if (user != null) {
-      const accesstoken = await resettokengen(user)
-      console.log(accesstoken)
-      const url: string = `${process.env.FRONTEND_URL}/auth/token=${accesstoken}`
+      const resettoken = await resettokengen(user)
+      console.log(resettoken)
+      const url: string = `${process.env.FRONTEND_URL}/auth/token=${resettoken}`
       const content: string = `<!DOCTYPE html>
         <html lang="en">
         <head>
@@ -220,8 +202,7 @@ export const ForgetPassword = async (req: Request, res: Response, next: NextFunc
     }
   }
 }
-
-export const tokenverify = async (req: CustomRequest, res: Response, next: NextFunction): Promise<void> => {
+export const tokenverify = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
     res.status(400).json({
@@ -229,7 +210,7 @@ export const tokenverify = async (req: CustomRequest, res: Response, next: NextF
     })
   }
   try {
-    if (req.user?.user_id != null) {
+    if (req.user != null) {
       res.status(200).json({
         user: req.user
       })
@@ -240,7 +221,6 @@ export const tokenverify = async (req: CustomRequest, res: Response, next: NextF
     next(error)
   }
 }
-
 export const refreshAccessToken = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
@@ -249,12 +229,11 @@ export const refreshAccessToken = async (req: Request, res: Response, next: Next
     })
   }
   const acctoken = req.body.token as string
-  const reftoken = req.body.rtoken as string
+
   try {
     const user = await validateAccessToken(acctoken)
-    const id = user.user_id
-    if (id != null) {
-      const checkreftoken = await validateRefreshToken(id, reftoken)
+    if (user != null) {
+      const checkreftoken = await validateRefreshToken(user, acctoken)
       if (!checkreftoken) {
         res.status(401).json({
           error: 'authentication failed'
@@ -283,22 +262,20 @@ export const refreshAccessToken = async (req: Request, res: Response, next: Next
     }
   }
 }
-
-// USER VERIFICATION:1
-export const verifyUser = async (req: CustomRequest, res: Response, next: NextFunction): Promise<void> => {
+export const verifyUser = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
     res.status(400).json({
       errors: errors.array()
     })
   }
+  const verifytoken = req.body.token as string
   try {
-    const verifytoken = req.body.token as string
-    const user = await validateVerifyresetToken(verifytoken)
+    const user = await validateverifyToken(verifytoken)
+    console.log(user)
     const userId = user.user_id
     if (userId != null) {
       await accountVerify(userId)
-      await MasterAccountLogout(userId)
       res.status(200).json({
         message: 'Account Verified'
       })
@@ -324,8 +301,7 @@ export const verifyUser = async (req: CustomRequest, res: Response, next: NextFu
   }
 }
 
-// USER RESET PASSWORD: 1
-export const resetPassword = async (req: CustomRequest, res: Response, next: NextFunction): Promise<void> => {
+export const resetPassword = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
     res.status(400).json({
@@ -335,11 +311,10 @@ export const resetPassword = async (req: CustomRequest, res: Response, next: Nex
   try {
     const password: string = req.body.password
     const verifytoken = req.body.token as string
-    const user = await validateVerifyresetToken(verifytoken)
+    const user = await validateresetToken(verifytoken)
     const userId = user.user_id
     if (userId != null) {
       await passwordReset(password, userId)
-      await MasterAccountLogout(userId)
       res.status(200).json({
         message: 'Password Reset Successful'
       })
@@ -355,15 +330,10 @@ export const resetPassword = async (req: CustomRequest, res: Response, next: Nex
 // USER LOGOUT: COMPLETED
 export const logout = async (req: CustomRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    if ((req.user?.user_id) != null && req.cookies.refreshTnk != null) {
-      const userId: string = req.user.user_id
-      const cookies: string = req.cookies.refreshTnk
-      await accountLogout(userId, cookies)
-      res.clearCookie('refreshTnk', {
-        httpOnly: true,
-        secure: false,
-        sameSite: 'none'
-      })
+    if ((req.user?.user_id) != null && req.headers.authorization != null) {
+      const token = req.headers.authorization
+      const key = `${token}|${req.user.user_id}`
+      await deleteRVToken(key)
       res.status(200).json({
         message: 'Logged out'
       })
@@ -372,121 +342,6 @@ export const logout = async (req: CustomRequest, res: Response, next: NextFuncti
     next(error)
   }
 }
-// COMPLETED
-export const Masterlogout = async (req: CustomRequest, res: Response, next: NextFunction): Promise<void> => {
-  try {
-    if ((req.user?.user_id) != null && req.cookies.refreshTnk != null) {
-      const userId: string = req.user.user_id
-      await MasterAccountLogout(userId)
-      res.clearCookie('refreshTnk', {
-        httpOnly: true,
-        secure: false,
-        sameSite: 'none'
-      })
-      res.status(200).json({
-        message: 'Garbage collected'
-      })
-    }
-  } catch (error) {
-    next(error)
-  }
-}
-
-const validateAccessToken = async (token: string): Promise<User> => {
-  const secret = process.env.AUTH_ACCESS_TOKEN_SECRET
-  if (secret != null) {
-    const decoded = jwt.verify(token, secret, { ignoreExpiration: true }) as DecodedToken
-    const user = await getuserbyemail(decoded.email)
-    if (user == null) {
-      throw new Error('Authentication failed')
-    }
-    return user
-  } else {
-    throw new Error('Authentication failed')
-  }
-}
-
-const validateVerifyresetToken = async (token: string): Promise<User> => {
-  const secret = process.env.AUTH_RESET_TOKEN_SECRET
-  if (secret != null) {
-    const decoded = jwt.verify(token, secret, { ignoreExpiration: true }) as DecodedToken
-    const user = await getuserbyemail(decoded.email)
-    if (user == null) {
-      throw new Error('Authentication failed')
-    }
-    return user
-  } else {
-    throw new Error('Authentication failed')
-  }
-}
-const validateRefreshToken = async (id: string, token: string): Promise<boolean> => {
-  const secret = process.env.AUTH_REFRESH_TOKEN_SECRET
-  if (secret != null) {
-    const comparetoken = await compareRefreshtokens(id, token)
-    if (!comparetoken) {
-      throw new Error('authentication failed')
-    }
-    const decoded = jwt.verify(token, secret) as DecodedToken
-    const user = await getuserbyemail(decoded.email)
-    if (user == null) {
-      throw new Error('Authentication failed')
-    }
-    return true
-  }
-  throw new Error('Authentication failed')
-}
-
-const accesstokengen = async (data: User): Promise<string> => {
-  if (process.env.AUTH_ACCESS_TOKEN_SECRET != null) {
-    const accesstoken = jwt.sign({ id: data.user_id, email: data.email }, process.env.AUTH_ACCESS_TOKEN_SECRET, { expiresIn: process.env.AUTH_ACCESS_TOKEN_EXPIRY })
-    return accesstoken
-  } else {
-    throw new Error('Missing environment variable: AUTH_REFRESH_TOKEN_SECRET')
-  }
-}
-
-const verifytokengen = async (data: User): Promise<string> => {
-  if (process.env.AUTH_RESET_TOKEN_SECRET != null && data.user_id != null) {
-    const verifytoken = jwt.sign({ id: data.user_id, email: data.email }, process.env.AUTH_RESET_TOKEN_SECRET, { expiresIn: process.env.RESET_PASSWORD_TOKEN_EXPIRY_MINS })
-    const tokenID: number = 3
-    await storetoken(verifytoken, tokenID, data.user_id)
-    return verifytoken
-  } else {
-    throw new Error('Missing environment variable: AUTH_REFRESH_TOKEN_SECRET')
-  }
-}
-const resettokengen = async (data: User): Promise<string> => {
-  if (process.env.AUTH_RESET_TOKEN_SECRET != null && data.user_id != null) {
-    const resettoken = jwt.sign({ id: data.user_id, email: data.email }, process.env.AUTH_RESET_TOKEN_SECRET, { expiresIn: process.env.RESET_PASSWORD_TOKEN_EXPIRY_MINS })
-    const tokenID: number = 2
-    await storetoken(resettoken, tokenID, data.user_id)
-    return resettoken
-  } else {
-    throw new Error('Missing environment variable: AUTH_REFRESH_TOKEN_SECRET')
-  }
-}
-
-// REFRESH TOKEN: Completed
-const refreshtokengen = async (data: User): Promise<string> => {
-  if (process.env.AUTH_REFRESH_TOKEN_SECRET != null && data.user_id != null) {
-    const refreshtoken = jwt.sign({ id: data.user_id, email: data.email }, process.env.AUTH_REFRESH_TOKEN_SECRET, {
-      expiresIn: process.env.AUTH_REFRESH_TOKEN_EXPIRY
-    })
-    const tokenID: number = 1
-    await storetoken(refreshtoken, tokenID, data.user_id)
-    return refreshtoken
-  } else {
-    throw new Error('Missing environment variable: AUTH_REFRESH_TOKEN_SECRET')
-  }
-}
-
-interface mail {
-  url: string
-  content: string
-  subject: string
-  from: string
-}
-
 const verificationmail = async (accesstoken: string): Promise<mail> => {
   const url: string = `${process.env.FRONTEND_URL}/auth/token=${accesstoken}`
   const content: string = `<!DOCTYPE html>

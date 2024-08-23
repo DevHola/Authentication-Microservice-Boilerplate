@@ -11,18 +11,13 @@ export interface User {
   usertype?: number
   token?: string[] | null
 }
-export interface token {
-  token_id?: string
-  hash: string
-  token_type_id: number
-  user_id: string
-  issued_at: string
+export interface mail {
+  url: string
+  content: string
+  subject: string
+  from: string
 }
-export interface token_type {
-  token_type_id?: string
-  name: string
 
-}
 // export interface InnerUser extends User {
 //   user_id?: string
 // }

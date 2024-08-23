@@ -1,19 +1,19 @@
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
 /* eslint-disable @typescript-eslint/no-misused-promises */
 import { Router } from 'express'
-import { userTypeCreation, getUType, AllUserType, deleteUType, userTypeUpdate } from '../controllers/usertype'
-import { verifyUser, resetPassword, logout, Masterlogout, tokenverify } from '../controllers/user'
-import { verifyAccessToken } from '../config/jwt'
-import { resetPasswordValidation } from '../validations/user.validation'
+import passport from 'passport'
+import { AllUserType, userTypeCreation, getUType, deleteUType, userTypeUpdate } from '../controllers/usertype'
+import { tokenverify } from '../controllers/user'
+// import { verifyUser, logout, Masterlogout, tokenverify, } from '../controllers/user'
+// import { verifyAccessToken } from '../middleware/jwt'
+// import { resetPasswordValidation } from '../validations/user.validation'
 const router = Router()
-router.post('/usertype', verifyAccessToken, userTypeCreation)
-router.get('/usertype/:id', verifyAccessToken, getUType)
-router.get('/usertypes', verifyAccessToken, AllUserType)
-router.delete('/usertype', verifyAccessToken, deleteUType)
-router.put('/usertype/:id', verifyAccessToken, userTypeUpdate)
-router.post('/token', verifyAccessToken, tokenverify)
-router.post('/verification', verifyAccessToken, verifyUser)
-router.post('/password/reset', resetPasswordValidation, verifyAccessToken, resetPassword)
-router.post('/logout', verifyAccessToken, logout)
-router.post('/logout/master', verifyAccessToken, Masterlogout)
+router.post('/usertype', passport.authenticate('jwt', { session: false }), userTypeCreation)
+router.get('/usertype/:id', passport.authenticate('jwt', { session: false }), getUType)
+router.get('/usertypes', passport.authenticate('jwt', { session: false }), AllUserType)
+router.delete('/usertype', passport.authenticate('jwt', { session: false }), deleteUType)
+router.put('/usertype/:id', passport.authenticate('jwt', { session: false }), userTypeUpdate)
+router.post('/token', passport.authenticate('jwt', { session: false }), tokenverify)
+// router.post('/logout', passport.authenticate('jwt', { session: false }), logout)
 
 export default router

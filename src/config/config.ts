@@ -1,12 +1,15 @@
 import nodemailer from 'nodemailer'
+const host = process.env.MAIL_HOST
+const user = process.env.MAIL_USER
+const pass = process.env.MAIL_PASS
 export const reusableMail = async (subject: string, content: string, to: string, from: string): Promise<void> => {
   try {
     const transporter = nodemailer.createTransport({
-      host: 'sandbox.smtp.mailtrap.io',
+      host,
       port: 2525,
       auth: {
-        user: '364d1386674e15',
-        pass: 'a472a01d707e65'
+        user,
+        pass
       }
     })
     await transporter.sendMail({
