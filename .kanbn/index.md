@@ -9,14 +9,13 @@ completedColumns:
 
 ## Backlog
 
-## Todo
+## Sprint Backlog
 
 ## In Progress
 
-- [token-management](tasks/token-management.md)
-
 ## Done
 
+- [incorporating-redis-token-management](tasks/incorporating-redis-token-management.md)
 - [authms-boilerplate](tasks/authms-boilerplate.md)
 - [implement-usertype-lookup](tasks/implement-usertype-lookup.md)
 - [work-on-verify-and-reset](tasks/work-on-verify-and-reset.md)

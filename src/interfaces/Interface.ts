@@ -12,7 +12,7 @@ export interface User {
   token?: string[] | null
 }
 export interface mail {
-  url: string
+  to: string
   content: string
   subject: string
   from: string

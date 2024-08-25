@@ -1,12 +1,13 @@
 import { type Request, type Response, type NextFunction } from 'express'
-import { type mail, type User } from '../interfaces/Interface'
+import { type User } from '../interfaces/Interface'
 import { register, comparePassword, getuserbyemail, accountVerify, passwordReset, checkemailexist } from '../services/userService'
-import { reusableMail } from '../config/config'
 import { type CustomRequest } from '../middleware/jwt'
 import { validationResult } from 'express-validator/check'
 import { StatusCodes } from 'http-status-codes'
 import { deleteRVToken, storeRefreshToken } from '../config/redis'
-import { accesstokengen, refreshtokengen, resettokengen, validateAccessToken, validateRefreshToken, validateresetToken, validateverifyToken, verifytokengen } from '../config/reuseables'
+import { accesstokengen, refreshtokengen, Resetpasswordmail, resettokengen, validateAccessToken, validateRefreshToken, validateresetToken, validateverifyToken, verificationmail, verifytokengen } from '../config/reuseables'
+import createMQProducer from '../config/rabbitmqconfig'
+const url = process.env.MQCONNECTURL ?? ''
 
 export const Register = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const error = validationResult(req)
@@ -25,8 +26,14 @@ export const Register = async (req: Request, res: Response, next: NextFunction):
     }
     const user = await register({ name, email, password, usertype })
     const verifytoken = await verifytokengen(user)
-    const data = await verificationmail(verifytoken)
-    await reusableMail(data.subject, data.content, email, data.from)
+    const data = await verificationmail(verifytoken, email)
+    const queueName: string = 'eventdriven'
+    const producer = await createMQProducer(url, queueName)
+    const msg = {
+      action: 'Verification',
+      data
+    }
+    producer(JSON.stringify(msg))
     res.status(200).json({
       message: `Registration successful. A verification mail has been sent to ${email}`
     })
@@ -60,10 +67,14 @@ export const Login = async (req: Request, res: Response, next: NextFunction): Pr
     }
     if (user.isverified === false) {
       const verifytoken = await verifytokengen(user)
-      console.log(verifytoken)
-      // create separate endpoint to send the mail maybe it times to use those message queues
-      // const data = await verificationmail(verifytoken)
-      // await reusableMail(data.subject, data.content, email, data.from)
+      const data = await verificationmail(verifytoken, email)
+      const queueName: string = 'eventdriven'
+      const producer = await createMQProducer(url, queueName)
+      const msg = {
+        action: 'Verification',
+        data
+      }
+      producer(JSON.stringify(msg))
       res.status(403).json({
         message: 'Your email address is not verified. A verification mail has been sent to your mail.',
         status: 'false',
@@ -71,8 +82,6 @@ export const Login = async (req: Request, res: Response, next: NextFunction): Pr
       })
     } else {
       const [accesstoken, refreshtoken] = await Promise.all([accesstokengen(user), refreshtokengen(user)])
-
-      console.log(refreshtoken)
       if ((user.user_id) != null) {
         await storeRefreshToken(accesstoken, user.user_id, refreshtoken)
       }
@@ -109,82 +118,17 @@ export const ForgetPassword = async (req: Request, res: Response, next: NextFunc
     const user: User = await getuserbyemail(email)
     if (user != null) {
       const resettoken = await resettokengen(user)
-      console.log(resettoken)
-      const url: string = `${process.env.FRONTEND_URL}/auth/token=${resettoken}`
-      const content: string = `<!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Password Reset</title>
-            <style>
-                body {
-                    font-family: Arial, sans-serif;
-                    background-color: #f4f4f4;
-                    margin: 0;
-                    padding: 0;
-                }
-                .container {
-                    max-width: 600px;
-                    margin: 0 auto;
-                    background-color: #ffffff;
-                    padding: 20px;
-                    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-                }
-                .header {
-                    text-align: center;
-                    padding: 10px 0;
-                    background-color: #007bff;
-                    color: #ffffff;
-                }
-                .content {
-                    padding: 20px;
-                }
-                .button {
-                    display: inline-block;
-                    padding: 10px 20px;
-                    color: #ffffff;
-                    background-color: #007bff;
-                    text-decoration: none;
-                    border-radius: 4px;
-                    text-align: center;
-                }
-                .footer {
-                    text-align: center;
-                    padding: 10px 0;
-                    background-color: #f4f4f4;
-                    color: #777777;
-                }
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="header">
-                    <h1>Password Reset Request</h1>
-                </div>
-                <div class="content">
-                    <p>Hello,</p>
-                    <p>We received a request to reset your password. Click the button below to reset your password:</p>
-                    <p>
-                        <a href="${url}" class="button">Reset Password</a>
-                    </p>
-                    <p>If you did not request a password reset, please ignore this email or contact support if you have questions.</p>
-                    <p>Thank you,<br>The Team</p>
-                </div>
-                <div class="footer">
-                    <p>&copy; 2024 Your Company. All rights reserved.</p>
-                </div>
-            </div>
-        </body>
-        </html>`
-      const subject: string = 'ACCOUNT PASSWORD RESET'
-      const from = process.env.FROM
-      if (from != null) {
-        await reusableMail(subject, content, email, from)
-        res.status(200).json({
-          message: 'Reset Code has been sent to your mail'
-        })
+      const data = await Resetpasswordmail(resettoken, email)
+      const queueName: string = 'eventdriven'
+      const producer = await createMQProducer(url, queueName)
+      const msg = {
+        action: 'Reset',
+        data
       }
+      producer(JSON.stringify(msg))
+      res.status(200).json({
+        message: 'Reset Code has been sent to your mail'
+      })
     }
   } catch (error) {
     if (error instanceof Error) {
@@ -272,7 +216,6 @@ export const verifyUser = async (req: Request, res: Response, next: NextFunction
   const verifytoken = req.body.token as string
   try {
     const user = await validateverifyToken(verifytoken)
-    console.log(user)
     const userId = user.user_id
     if (userId != null) {
       await accountVerify(userId)
@@ -327,7 +270,6 @@ export const resetPassword = async (req: Request, res: Response, next: NextFunct
     }
   }
 }
-// USER LOGOUT: COMPLETED
 export const logout = async (req: CustomRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     if ((req.user?.user_id) != null && req.headers.authorization != null) {
@@ -341,82 +283,4 @@ export const logout = async (req: CustomRequest, res: Response, next: NextFuncti
   } catch (error) {
     next(error)
   }
-}
-const verificationmail = async (accesstoken: string): Promise<mail> => {
-  const url: string = `${process.env.FRONTEND_URL}/auth/token=${accesstoken}`
-  const content: string = `<!DOCTYPE html>
-  <html lang="en">
-  <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Email Verification</title>
-      <style>
-          body {
-              font-family: Arial, sans-serif;
-              background-color: #f4f4f4;
-              margin: 0;
-              padding: 0;
-          }
-          .container {
-              max-width: 600px;
-              margin: 0 auto;
-              background-color: #ffffff;
-              padding: 20px;
-              box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-          }
-          .header {
-              text-align: center;
-              padding: 10px 0;
-              background-color: #007bff;
-              color: #ffffff;
-          }
-          .content {
-              padding: 20px;
-          }
-          .button {
-              display: inline-block;
-              padding: 10px 20px;
-              color: #ffffff;
-              background-color: #007bff;
-              text-decoration: none;
-              border-radius: 4px;
-              text-align: center;
-          }
-          .footer {
-              text-align: center;
-              padding: 10px 0;
-              background-color: #f4f4f4;
-              color: #777777;
-          }
-      </style>
-  </head>
-  <body>
-      <div class="container">
-          <div class="header">
-              <h1>Email Verification</h1>
-          </div>
-          <div class="content">
-              <p>Hello,</p>
-              <p>Thank you for registering with us. Please click the button below to verify your email address:</p>
-              <p>
-                  <a href="${url}" class="button">Verify Email</a>
-              </p>
-              <p>If you did not sign up for this account, please ignore this email or contact support if you have questions.</p>
-              <p>Thank you,<br>The Team</p>
-          </div>
-          <div class="footer">
-              <p>&copy; 2024 Your Company. All rights reserved.</p>
-          </div>
-      </div>
-  </body>
-  </html>`
-  const subject: string = 'ACCOUNT PASSWORD RESET'
-  const from = process.env.FROM ?? 'no-reply@yourcompany.com'
-  const data: mail = {
-    url,
-    content,
-    subject,
-    from
-  }
-  return data
 }
