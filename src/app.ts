@@ -14,6 +14,7 @@ import hemlet from 'helmet'
 import cookieparser from 'cookie-parser'
 import router from './routes/index.private'
 import publicrouter from './routes/index.public'
+import utrouter from './routes/usertypes'
 import passport = require('passport')
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import JWTStrategy from './middleware/passportjwt'
@@ -32,8 +33,9 @@ app.use((error: Error, req: Request, res: Response, next: NextFunction) => {
     message: error.stack
   })
 })
-app.use('/api/auth/protected', router)
-app.use('/api/auth/public', publicrouter)
+app.use('/api/v1/auth/protected', router)
+app.use('/api/v1/auth/types', utrouter)
+app.use('/api/v1/auth/public', publicrouter)
 const port = process.env.PORTDEV
 
 app.listen(port, () => {

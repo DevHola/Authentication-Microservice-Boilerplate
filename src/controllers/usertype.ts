@@ -1,6 +1,7 @@
 import { type Request, type Response, type NextFunction } from 'express'
 import { createUserType, UpdateUserType, getAllUserType, getUserType, deleteUserType } from '../services/usertypeService'
 import { type UserType } from '../interfaces/Interface'
+import { type User } from '../interfaces/user'
 export const userTypeCreation = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { name, description } = req.body as UserType
@@ -26,10 +27,12 @@ export const userTypeUpdate = async (req: Request, res: Response, next: NextFunc
     next(error)
   }
 }
+
 export const AllUserType = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    console.log(req.user)
     const userstype = await getAllUserType()
+    const user = req.user as User
+    console.log(user.user_id)
     res.status(200).json(
       userstype.rows
     )
@@ -40,6 +43,8 @@ export const AllUserType = async (req: Request, res: Response, next: NextFunctio
 export const getUType = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const id = parseInt(req.params.id)
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+
     const usertype = await getUserType(id)
     res.status(200).json(usertype.rows)
   } catch (error) {

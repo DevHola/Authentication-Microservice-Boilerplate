@@ -1,14 +1,16 @@
 {
-    "compilerOptions": {
-      "target": "es2017",                          
-      "module": "commonjs",                    
-      "lib": ["es6"],                     
-      "allowJs": true,
-      "outDir": "build",                          
-      "strict": true,         
-      "noImplicitAny": true,
-      "esModuleInterop": true,
-      "resolveJsonModule": true
-    },
-    "include": ["./types/**/*.d.ts", "./src/**/*.ts"]
-  }
+  "compilerOptions": {
+    "target": "es2017",
+    "module": "commonjs",
+    "lib": ["es6"],
+    "allowJs": true,
+    "outDir": "build",
+    "strict": true,
+    "noImplicitAny": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "typeRoots": ["./node_modules/@types", "src/@types"],  // Add this line
+    "types": ["node", "express"]  // List the types you are using
+  },
+  "include": ["src/**/*.ts", "src/**/*.d.ts"]
+}

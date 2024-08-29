@@ -22,7 +22,7 @@ export const validateresetToken = async (token: string): Promise<User> => {
   if (secret != null) {
     const decoded = jwt.verify(token, secret, { ignoreExpiration: true }) as DecodedToken
     const type: string = 'Reset'
-    const checkexisttoken: boolean = await getRVToken(token, type, decoded._id)
+    const checkexisttoken: boolean = await getRVToken(token, type, decoded.user_id)
     if (!checkexisttoken) {
       throw new Error('Authentication failed')
     }
@@ -41,7 +41,7 @@ export const validateverifyToken = async (token: string): Promise<User> => {
   if (secret != null) {
     const decoded = jwt.verify(token, secret, { ignoreExpiration: true }) as DecodedToken
     const type: string = 'Verify'
-    const checkexisttoken: boolean = await getRVToken(token, type, decoded._id)
+    const checkexisttoken: boolean = await getRVToken(token, type, decoded.user_id)
     if (!checkexisttoken) {
       throw new Error('Authentication failed')
     }
@@ -75,7 +75,7 @@ export const validateRefreshToken = async (user: User, token: string): Promise<b
 
 export const verifytokengen = async (data: User): Promise<string> => {
   if (process.env.AUTH_RESET_TOKEN_SECRET != null && data.user_id != null) {
-    const verifytoken = jwt.sign({ _id: data.user_id, email: data.email }, process.env.AUTH_RESET_TOKEN_SECRET, { expiresIn: process.env.RESET_PASSWORD_TOKEN_EXPIRY_MINS })
+    const verifytoken = jwt.sign({ user_id: data.user_id, email: data.email }, process.env.AUTH_RESET_TOKEN_SECRET, { expiresIn: process.env.RESET_PASSWORD_TOKEN_EXPIRY_MINS })
     const tokentype: string = 'Verify'
     await storeRVToken(verifytoken, tokentype, data.user_id)
     return verifytoken
@@ -85,7 +85,7 @@ export const verifytokengen = async (data: User): Promise<string> => {
 }
 export const resettokengen = async (data: User): Promise<string> => {
   if (process.env.AUTH_RESET_TOKEN_SECRET != null && data.user_id != null) {
-    const resettoken = jwt.sign({ _id: data.user_id, email: data.email }, process.env.AUTH_RESET_TOKEN_SECRET, { expiresIn: process.env.RESET_PASSWORD_TOKEN_EXPIRY_MINS })
+    const resettoken = jwt.sign({ user_id: data.user_id, email: data.email }, process.env.AUTH_RESET_TOKEN_SECRET, { expiresIn: process.env.RESET_PASSWORD_TOKEN_EXPIRY_MINS })
     const tokentype: string = 'Reset'
     await storeRVToken(resettoken, tokentype, data.user_id)
     return resettoken
@@ -96,7 +96,7 @@ export const resettokengen = async (data: User): Promise<string> => {
 
 export const accesstokengen = async (data: User): Promise<string> => {
   if (process.env.AUTH_ACCESS_TOKEN_SECRET != null) {
-    const accesstoken = jwt.sign({ _id: data.user_id, email: data.email }, process.env.AUTH_ACCESS_TOKEN_SECRET, { expiresIn: process.env.AUTH_ACCESS_TOKEN_EXPIRY })
+    const accesstoken = jwt.sign({ user_id: data.user_id, email: data.email }, process.env.AUTH_ACCESS_TOKEN_SECRET, { expiresIn: process.env.AUTH_ACCESS_TOKEN_EXPIRY })
     return accesstoken
   } else {
     throw new Error('Missing environment variable: AUTH_REFRESH_TOKEN_SECRET')
@@ -104,7 +104,7 @@ export const accesstokengen = async (data: User): Promise<string> => {
 }
 export const refreshtokengen = async (data: User): Promise<string> => {
   if (process.env.AUTH_REFRESH_TOKEN_SECRET != null && data.user_id != null) {
-    const refreshtoken = jwt.sign({ _id: data.user_id, email: data.email }, process.env.AUTH_REFRESH_TOKEN_SECRET, {
+    const refreshtoken = jwt.sign({ user_id: data.user_id, email: data.email }, process.env.AUTH_REFRESH_TOKEN_SECRET, {
       expiresIn: process.env.AUTH_REFRESH_TOKEN_EXPIRY
     })
     return refreshtoken

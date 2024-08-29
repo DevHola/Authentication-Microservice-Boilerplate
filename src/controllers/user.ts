@@ -1,7 +1,7 @@
 import { type Request, type Response, type NextFunction } from 'express'
 import { type User } from '../interfaces/Interface'
 import { register, comparePassword, getuserbyemail, accountVerify, passwordReset, checkemailexist } from '../services/userService'
-import { type CustomRequest } from '../middleware/jwt'
+// import { type CustomRequest } from '../middleware/jwt'
 import { validationResult } from 'express-validator/check'
 import { StatusCodes } from 'http-status-codes'
 import { deleteRVToken, storeRefreshToken } from '../config/redis'
@@ -27,8 +27,21 @@ export const Register = async (req: Request, res: Response, next: NextFunction):
     const user = await register({ name, email, password, usertype })
     const verifytoken = await verifytokengen(user)
     const data = await verificationmail(verifytoken, email)
-    const queueName: string = 'eventdriven'
-    const producer = await createMQProducer(url, queueName)
+    const walletqueue: string = 'walletqueue'
+    const wexchangeName: string = 'wallet_exchange'
+    const wroutekey: string = 'wallet_route'
+    const walletproducer = await createMQProducer(url, walletqueue, wexchangeName, wroutekey)
+    const wmsg = {
+      action: 'wallet_create',
+      data: {
+        userid: user.user_id
+      }
+    }
+    walletproducer(JSON.stringify(wmsg))
+    const queueName: string = 'mailqueue'
+    const exchangeName: string = 'mail_exchange'
+    const routekey: string = 'mail_route'
+    const producer = await createMQProducer(url, queueName, exchangeName, routekey)
     const msg = {
       action: 'Verification',
       data
@@ -68,8 +81,10 @@ export const Login = async (req: Request, res: Response, next: NextFunction): Pr
     if (user.isverified === false) {
       const verifytoken = await verifytokengen(user)
       const data = await verificationmail(verifytoken, email)
-      const queueName: string = 'eventdriven'
-      const producer = await createMQProducer(url, queueName)
+      const queueName: string = 'mailqueue'
+      const exchangeName: string = 'mail_exchange'
+      const routekey: string = 'mail_route'
+      const producer = await createMQProducer(url, queueName, exchangeName, routekey)
       const msg = {
         action: 'Verification',
         data
@@ -119,10 +134,13 @@ export const ForgetPassword = async (req: Request, res: Response, next: NextFunc
     if (user != null) {
       const resettoken = await resettokengen(user)
       const data = await Resetpasswordmail(resettoken, email)
-      const queueName: string = 'eventdriven'
-      const producer = await createMQProducer(url, queueName)
+      console.log(data)
+      const queueName: string = 'mailqueue'
+      const exchangeName: string = 'mail_exchange'
+      const routekey: string = 'mail_route'
+      const producer = await createMQProducer(url, queueName, exchangeName, routekey)
       const msg = {
-        action: 'Reset',
+        action: 'Verification',
         data
       }
       producer(JSON.stringify(msg))
@@ -270,11 +288,12 @@ export const resetPassword = async (req: Request, res: Response, next: NextFunct
     }
   }
 }
-export const logout = async (req: CustomRequest, res: Response, next: NextFunction): Promise<void> => {
+export const logout = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    if ((req.user?.user_id) != null && req.headers.authorization != null) {
+    if ((req.user) != null) {
+      const user = req.user as User
       const token = req.headers.authorization
-      const key = `${token}|${req.user.user_id}`
+      const key = `${token}|${user.user_id}`
       await deleteRVToken(key)
       res.status(200).json({
         message: 'Logged out'
