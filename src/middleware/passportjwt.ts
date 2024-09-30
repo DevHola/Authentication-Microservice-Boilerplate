@@ -6,7 +6,6 @@ import { type DecodedToken } from './jwt'
 
 const authorizationExtractor = function (req: Request): string | null {
   if ((req.headers.authorization != null) && req.headers.authorization.startsWith('Bearer ')) {
-    console.log('ready')
     return req.headers.authorization.split(' ')[1]
   }
   return null

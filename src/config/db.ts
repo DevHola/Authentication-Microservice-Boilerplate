@@ -19,7 +19,7 @@ pool.connect((error, client, release) => {
   if (error != null) {
     console.log('connection failed', error.stack)
   } else {
-    console.log('connection successful')
+    // console.log('connection successful')
     release()
   }
 })

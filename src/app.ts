@@ -30,7 +30,7 @@ app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 app.use((error: Error, req: Request, res: Response, next: NextFunction) => {
   res.status(500).json({
-    message: error.stack
+    message: error.message
   })
 })
 app.use('/api/v1/auth/protected', router)

@@ -46,9 +46,8 @@ export const getuserbyemail = async (email: string): Promise<User> => {
   const user = finduser.rows[0] as User | undefined
   if (user == null) {
     throw new Error('User not found')
-  } else {
-    return user
   }
+  return user
 }
 
 export const passwordReset = async (password: string, id: string): Promise<void> => {

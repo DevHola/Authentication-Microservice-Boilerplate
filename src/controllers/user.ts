@@ -54,7 +54,7 @@ export const Register = async (req: Request, res: Response, next: NextFunction):
     if (error instanceof Error) {
       if (error.message === 'user already exist') {
         res.status(409).json({
-          message: 'User already exists'
+          error: 'User already exists'
         })
       } else {
         next(error)
@@ -65,7 +65,7 @@ export const Register = async (req: Request, res: Response, next: NextFunction):
 export const Login = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
-    res.status(400).json({ errors: errors.array() })
+    res.status(StatusCodes.NOT_FOUND).json({ errors: errors.array() })
   }
   try {
     const email: string = req.body.email
@@ -92,7 +92,7 @@ export const Login = async (req: Request, res: Response, next: NextFunction): Pr
       producer(JSON.stringify(msg))
       res.status(403).json({
         message: 'Your email address is not verified. A verification mail has been sent to your mail.',
-        status: 'false',
+        status: false,
         token: verifytoken
       })
     } else {
@@ -109,11 +109,11 @@ export const Login = async (req: Request, res: Response, next: NextFunction): Pr
     if (error instanceof Error) {
       if (error.message === 'User not found') {
         res.status(404).json({
-          message: 'User not found'
+          error: 'User not found'
         })
       } else if (error.message === 'incorrect credentials') {
         res.status(401).json({
-          message: 'Invalid Credentials'
+          error: 'Invalid Credentials'
         })
       } else {
         next(error)
@@ -124,39 +124,36 @@ export const Login = async (req: Request, res: Response, next: NextFunction): Pr
 export const ForgetPassword = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
-    res.status(400).json({
+    res.status(StatusCodes.NOT_FOUND).json({
       error: errors.array()
     })
   }
   try {
     const email: string = req.body.email
     const user: User = await getuserbyemail(email)
-    if (user != null) {
-      const resettoken = await resettokengen(user)
-      const data = await Resetpasswordmail(resettoken, email)
-      console.log(data)
-      const queueName: string = 'mailqueue'
-      const exchangeName: string = 'mail_exchange'
-      const routekey: string = 'mail_route'
-      const producer = await createMQProducer(url, queueName, exchangeName, routekey)
-      const msg = {
-        action: 'Verification',
-        data
-      }
-      producer(JSON.stringify(msg))
-      res.status(200).json({
-        message: 'Reset Code has been sent to your mail'
-      })
+    if (user === null) {
+      throw new Error('User not found')
     }
+    const resettoken = await resettokengen(user)
+    const data = await Resetpasswordmail(resettoken, email)
+    const queueName: string = 'mailqueue'
+    const exchangeName: string = 'mail_exchange'
+    const routekey: string = 'mail_route'
+    const producer = await createMQProducer(url, queueName, exchangeName, routekey)
+    const msg = {
+      action: 'Verification',
+      data
+    }
+    producer(JSON.stringify(msg))
+    res.status(200).json({
+      message: 'Reset Code has been sent to your mail',
+      token: resettoken
+    })
   } catch (error) {
     if (error instanceof Error) {
       if (error.message === 'User not found') {
         res.status(409).json({
           message: 'User does not exist'
-        })
-      } else if (error.message.includes('mailing failed')) {
-        res.status(500).json({
-          message: error.message
         })
       } else {
         next(error)
@@ -208,18 +205,12 @@ export const refreshAccessToken = async (req: Request, res: Response, next: Next
     }
   } catch (error) {
     if (error instanceof Error) {
-      if (error.message === 'Authentication failed') {
+      if (error.message === 'Authentication failed' || error.message === 'jwt expired' || error.message === 'invalid token') {
         res.status(401).json({
           error: 'Authentication Failed'
         })
-      } else if (error.message === 'jwt expired') {
-        res.status(401).json({
-          error: 'Authentication Failed'
-        })
-      } else if (error.message === 'invalid token') {
-        res.status(401).json({
-          error: 'Authentication Failed'
-        })
+      } else {
+        next(error)
       }
     }
   }
@@ -243,15 +234,7 @@ export const verifyUser = async (req: Request, res: Response, next: NextFunction
     }
   } catch (error) {
     if (error instanceof Error) {
-      if (error.message === 'Authentication failed') {
-        res.status(401).json({
-          error: 'Authentication Failed'
-        })
-      } else if (error.message === 'jwt expired') {
-        res.status(401).json({
-          error: 'Authentication Failed'
-        })
-      } else if (error.message === 'invalid token') {
+      if (error.message === 'Authentication failed' || error.message === 'jwt expired' || error.message === 'invalid token') {
         res.status(401).json({
           error: 'Authentication Failed'
         })
