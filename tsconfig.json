@@ -12,5 +12,5 @@
     "typeRoots": ["./node_modules/@types", "src/@types"],  // Add this line
     "types": ["node", "express"]  // List the types you are using
   },
-  "include": ["src/**/*.ts", "src/**/*.d.ts"]
+  "include": ["src/**/*.ts", "src/**/*.d.ts", "test/**/*"]
 }

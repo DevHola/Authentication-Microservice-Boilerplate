@@ -11,7 +11,7 @@ export const redisconnect = async (): Promise<any> => {
 export const storeRefreshToken = async (accessToken: string, userId: string, refreshToken: string): Promise<void> => {
   const client = await redisconnect()
   const key = `${accessToken}|${userId}`
-  await client.set(key, refreshToken)
+  await client.set(key, refreshToken, 'EX', process.env.AUTH_REFRESH_TOKEN_EXPIRY)
   await client.disconnect()
 }
 
@@ -20,11 +20,11 @@ export const storeRVToken = async (Token: string, type: string, userId: string):
   const key = `${type}|${userId}`
   switch (type) {
     case 'Reset':
-      await client.set(key, Token)
+      await client.set(key, Token, 'EX', process.env.RESET_PASSWORD_TOKEN_EXPIRY_MINS)
       await client.disconnect()
       break
     case 'Verify':
-      await client.set(key, Token)
+      await client.set(key, Token, 'EX', process.env.RESET_PASSWORD_TOKEN_EXPIRY_MINS)
       await client.disconnect()
       break
 

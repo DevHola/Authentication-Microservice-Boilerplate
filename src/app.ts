@@ -36,8 +36,5 @@ app.use((error: Error, req: Request, res: Response, next: NextFunction) => {
 app.use('/api/v1/auth/protected', router)
 app.use('/api/v1/auth/types', utrouter)
 app.use('/api/v1/auth/public', publicrouter)
-const port = process.env.PORTDEV
 
-app.listen(port, () => {
-  console.log(`Express is listening at http://localhost:${port}`)
-})
+export default app

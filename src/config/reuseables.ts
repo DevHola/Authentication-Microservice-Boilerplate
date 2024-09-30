@@ -4,9 +4,9 @@ import { getuserbyemail } from '../services/userService'
 import { type mail, type User } from '../interfaces/Interface'
 import { getRefreshToken, getRVToken, storeRVToken } from './redis'
 export const validateAccessToken = async (token: string): Promise<User> => {
-  const secret = process.env.AUTH_ACCESS_TOKEN_SECRET
+  const secret = process.env.AUTH_ACCESS_TOKEN_PUBLIC_SECRET
   if (secret != null) {
-    const decoded = jwt.verify(token, secret, { ignoreExpiration: true }) as DecodedToken
+    const decoded = jwt.verify(token, secret, { algorithms: ['RS256'], ignoreExpiration: true }) as DecodedToken
     const user = await getuserbyemail(decoded.email)
     if (user == null) {
       throw new Error('Authentication failed')
@@ -20,7 +20,7 @@ export const validateAccessToken = async (token: string): Promise<User> => {
 export const validateresetToken = async (token: string): Promise<User> => {
   const secret = process.env.AUTH_RESET_TOKEN_SECRET
   if (secret != null) {
-    const decoded = jwt.verify(token, secret, { ignoreExpiration: true }) as DecodedToken
+    const decoded = jwt.verify(token, secret) as DecodedToken
     const type: string = 'Reset'
     const checkexisttoken: boolean = await getRVToken(token, type, decoded.user_id)
     if (!checkexisttoken) {
@@ -39,7 +39,7 @@ export const validateresetToken = async (token: string): Promise<User> => {
 export const validateverifyToken = async (token: string): Promise<User> => {
   const secret = process.env.AUTH_RESET_TOKEN_SECRET
   if (secret != null) {
-    const decoded = jwt.verify(token, secret, { ignoreExpiration: true }) as DecodedToken
+    const decoded = jwt.verify(token, secret) as DecodedToken
     const type: string = 'Verify'
     const checkexisttoken: boolean = await getRVToken(token, type, decoded.user_id)
     if (!checkexisttoken) {
@@ -57,12 +57,12 @@ export const validateverifyToken = async (token: string): Promise<User> => {
 }
 
 export const validateRefreshToken = async (user: User, token: string): Promise<boolean> => {
-  const secret = process.env.AUTH_REFRESH_TOKEN_SECRET
+  const secret = process.env.AUTH_REFRESH_TOKEN_PUBLIC_SECRET
   const id = user.user_id
   if (secret != null && id != null) {
     const comparetoken: string = await getRefreshToken(token, id)
     if (comparetoken !== null) {
-      const decoded = jwt.verify(comparetoken, secret) as DecodedToken
+      const decoded = jwt.verify(comparetoken, secret, { algorithms: ['RS256'] }) as DecodedToken
       const user = await getuserbyemail(decoded.email)
       if (user == null) {
         throw new Error('Authentication failed')
@@ -95,17 +95,17 @@ export const resettokengen = async (data: User): Promise<string> => {
 }
 
 export const accesstokengen = async (data: User): Promise<string> => {
-  if (process.env.AUTH_ACCESS_TOKEN_SECRET != null) {
-    const accesstoken = jwt.sign({ user_id: data.user_id, email: data.email }, process.env.AUTH_ACCESS_TOKEN_SECRET, { expiresIn: process.env.AUTH_ACCESS_TOKEN_EXPIRY })
+  if (process.env.AUTH_ACCESS_TOKEN_PRIVATE_SECRET != null) {
+    const accesstoken = jwt.sign({ user_id: data.user_id, email: data.email }, process.env.AUTH_ACCESS_TOKEN_PRIVATE_SECRET, { algorithm: 'RS256', expiresIn: process.env.AUTH_ACCESS_TOKEN_EXPIRY })
     return accesstoken
   } else {
     throw new Error('Missing environment variable: AUTH_REFRESH_TOKEN_SECRET')
   }
 }
 export const refreshtokengen = async (data: User): Promise<string> => {
-  if (process.env.AUTH_REFRESH_TOKEN_SECRET != null && data.user_id != null) {
-    const refreshtoken = jwt.sign({ user_id: data.user_id, email: data.email }, process.env.AUTH_REFRESH_TOKEN_SECRET, {
-      expiresIn: process.env.AUTH_REFRESH_TOKEN_EXPIRY
+  if (process.env.AUTH_REFRESH_TOKEN_PRIVATE_SECRET != null && data.user_id != null) {
+    const refreshtoken = jwt.sign({ user_id: data.user_id, email: data.email }, process.env.AUTH_REFRESH_TOKEN_PRIVATE_SECRET, {
+      algorithm: 'RS256', expiresIn: process.env.AUTH_REFRESH_TOKEN_EXPIRY
     })
     return refreshtoken
   } else {
@@ -114,6 +114,7 @@ export const refreshtokengen = async (data: User): Promise<string> => {
 }
 export const Resetpasswordmail = async (resettoken: string, email: string): Promise<mail> => {
   const url: string = `${process.env.FRONTEND_URL}/auth/token=${resettoken}`
+  console.log(resettoken)
   const content: string = `<!DOCTYPE html>
         <html lang="en">
         <head>

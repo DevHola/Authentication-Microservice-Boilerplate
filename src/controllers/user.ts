@@ -27,9 +27,9 @@ export const Register = async (req: Request, res: Response, next: NextFunction):
     const user = await register({ name, email, password, usertype })
     const verifytoken = await verifytokengen(user)
     const data = await verificationmail(verifytoken, email)
-    const walletqueue: string = 'walletqueue'
-    const wexchangeName: string = 'wallet_exchange'
-    const wroutekey: string = 'wallet_route'
+    const walletqueue: string = 'user_wallet_queue'
+    const wexchangeName: string = 'user_wallet_exchange'
+    const wroutekey: string = 'user_wallet_route'
     const walletproducer = await createMQProducer(url, walletqueue, wexchangeName, wroutekey)
     const wmsg = {
       action: 'wallet_create',

@@ -6,18 +6,20 @@ import { type DecodedToken } from './jwt'
 
 const authorizationExtractor = function (req: Request): string | null {
   if ((req.headers.authorization != null) && req.headers.authorization.startsWith('Bearer ')) {
+    console.log('ready')
     return req.headers.authorization.split(' ')[1]
   }
   return null
 }
-const secret = process.env.AUTH_ACCESS_TOKEN_SECRET
+const secret = process.env.AUTH_ACCESS_TOKEN_PUBLIC_SECRET
 if (secret == null) {
   throw new Error('AUTH_ACCESS_TOKEN_SECRET is not defined')
 }
 export default new JWTStrategy(
   {
     jwtFromRequest: authorizationExtractor,
-    secretOrKey: secret
+    secretOrKey: secret,
+    algorithms: ['RS256']
   }, async (payload: DecodedToken, done): Promise<void> => {
     try {
       const user = await getuserbyemail(payload.email)
