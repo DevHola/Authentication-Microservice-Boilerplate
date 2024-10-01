@@ -43,10 +43,8 @@ export const accountVerify = async (id: string): Promise<void> => {
 
 export const getuserbyemail = async (email: string): Promise<User> => {
   const finduser = await pool.query('SELECT user_id, name, email, isverified FROM users WHERE email=$1', [email])
-  const user = finduser.rows[0] as User | undefined
-  if (user == null) {
-    throw new Error('User not found')
-  }
+  const user = finduser.rows[0] as User
+  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
   return user
 }
 

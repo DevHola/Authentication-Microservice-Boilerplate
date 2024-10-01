@@ -69,16 +69,6 @@ describe('AUTH USER - FORGET & RESET PASSWORD - Endpoint', () => {
         expect(forget.body.message).toBe('Reset Code has been sent to your mail')
         resettoken = forget.body.token
     })
-    it('Forget Password - Endpoint', async () => {
-        const forget = await request(app)
-        .post('/api/v1/auth/public/forget')
-        .send({
-            email: 'fawaz06343@gmail.com'
-        })
-        expect(forget.statusCode).toBe(409)
-        expect(forget.body.message).toBe('User does not exist')
-
-    })
     it('Password Reset', async () => {
         const reset = await request(app)
         .post('/api/v1/auth/public/password/reset')
@@ -88,6 +78,16 @@ describe('AUTH USER - FORGET & RESET PASSWORD - Endpoint', () => {
         })
         expect(reset.statusCode).toBe(200)
         expect(reset.body.message).toBe('Password Reset Successful')
+
+    })
+    it('Forget Password - Endpoint', async () => {
+        const forget = await request(app)
+        .post('/api/v1/auth/public/forget')
+        .send({
+            email: 'fawaz06343@gmail.com'
+        })
+        expect(forget.statusCode).toBe(404)
+        expect(forget.body.error).toBe('User does not exist')
 
     })
 })
@@ -154,7 +154,7 @@ describe('ALREADT REGISTERED & MISSING DATA ENDPOINT', () => {
             name: '',
             usertype: ''
         })
-        expect(res_register.statusCode).toBe(404)
+        expect(res_register.statusCode).toBe(400)
         expect(res_register.body.errors).toBeDefined()
        
     })
@@ -162,22 +162,22 @@ describe('ALREADT REGISTERED & MISSING DATA ENDPOINT', () => {
         const res_login = await request(app)
         .post('/api/v1/auth/public/login')
         .send({
-            email:'fawaz0633@gmail.com',
+            email:'',
             password:'',
         })
-        expect(res_login.statusCode).toBe(404)
+        expect(res_login.statusCode).toBe(400)
         expect(res_login.body.errors).toBeDefined()
     })
     it('LOGIN - User not found', async () => {
         const res_login = await request(app)
         .post('/api/v1/auth/public/login')
         .send({
-            email:'fawaz07633@gmail.com',
-            password:'1234567808',
+            email:'fawaz06331@gmail.com',
+            password:'123456789',
         })
         expect(res_login.statusCode).toBe(404)
-        expect(res_login.body.error).toBeDefined()
-        expect(res_login.body.error).toBe('User not found')
+        expect(res_login.body.error).toBe('User does not exist')
+
     })
     it('LOGIN - wrong password', async () => {
         const res_login = await request(app)
@@ -196,7 +196,7 @@ describe('ALREADT REGISTERED & MISSING DATA ENDPOINT', () => {
         .send({
             email: ''
         })
-        expect(forget.statusCode).toBe(404)
+        expect(forget.statusCode).toBe(400)
         expect(forget.body.error).toBeDefined()
     })
     // FOR UN-AUTHORISED USER & MISSING DATA

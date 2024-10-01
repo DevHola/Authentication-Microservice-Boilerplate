@@ -1,7 +1,6 @@
 import { type Request, type Response, type NextFunction } from 'express'
 import { type User } from '../interfaces/Interface'
-import { register, comparePassword, getuserbyemail, accountVerify, passwordReset, checkemailexist } from '../services/userService'
-// import { type CustomRequest } from '../middleware/jwt'
+import { register, comparePassword, accountVerify, passwordReset, checkemailexist, getuserbyemail } from '../services/userService'
 import { validationResult } from 'express-validator/check'
 import { StatusCodes } from 'http-status-codes'
 import { deleteRVToken, storeRefreshToken } from '../config/redis'
@@ -12,7 +11,7 @@ const url = process.env.MQCONNECTURL ?? ''
 export const Register = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const error = validationResult(req)
   if (!error.isEmpty()) {
-    res.status(StatusCodes.NOT_FOUND).json({ errors: error.array() })
+    res.status(StatusCodes.BAD_REQUEST).json({ errors: error.array() })
   }
   try {
     const name: string = req.body.name
@@ -22,7 +21,9 @@ export const Register = async (req: Request, res: Response, next: NextFunction):
     const check = await checkemailexist(email)
     // https://www.npmjs.com/package/response-status-code
     if (check) {
-      throw new Error('user already exist')
+      res.status(409).json({
+        error: 'User already exists'
+      })
     }
     const user = await register({ name, email, password, usertype })
     const verifytoken = await verifytokengen(user)
@@ -52,31 +53,28 @@ export const Register = async (req: Request, res: Response, next: NextFunction):
     })
   } catch (error) {
     if (error instanceof Error) {
-      if (error.message === 'user already exist') {
-        res.status(409).json({
-          error: 'User already exists'
-        })
-      } else {
-        next(error)
-      }
+      next(error)
     }
   }
 }
 export const Login = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
-    res.status(StatusCodes.NOT_FOUND).json({ errors: errors.array() })
+    res.status(StatusCodes.BAD_REQUEST).json({ errors: errors.array() })
   }
   try {
     const email: string = req.body.email
     const password: string = req.body.password
     const user: User = await getuserbyemail(email)
-    if (user === null || user === null) {
-      throw new Error('User not found')
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+    if (!user || user == null) {
+      res.status(StatusCodes.NOT_FOUND).json({
+        error: 'User does not exist'
+      })
     }
     const compare = await comparePassword(password, user.email)
     if (!compare) {
-      throw new Error('incorrect credentials')
+      throw new Error('invalid credentials')
     }
     if (user.isverified === false) {
       const verifytoken = await verifytokengen(user)
@@ -107,11 +105,11 @@ export const Login = async (req: Request, res: Response, next: NextFunction): Pr
     }
   } catch (error) {
     if (error instanceof Error) {
-      if (error.message === 'User not found') {
-        res.status(404).json({
-          error: 'User not found'
+      if (error.message === 'NoUser') {
+        res.status(StatusCodes.NOT_FOUND).json({
+          error: 'User does not exist'
         })
-      } else if (error.message === 'incorrect credentials') {
+      } else if (error.message === 'invalid credentials') {
         res.status(401).json({
           error: 'Invalid Credentials'
         })
@@ -124,15 +122,18 @@ export const Login = async (req: Request, res: Response, next: NextFunction): Pr
 export const ForgetPassword = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
-    res.status(StatusCodes.NOT_FOUND).json({
+    res.status(StatusCodes.BAD_REQUEST).json({
       error: errors.array()
     })
   }
   try {
     const email: string = req.body.email
     const user: User = await getuserbyemail(email)
-    if (user === null) {
-      throw new Error('User not found')
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+    if (!user || user == null) {
+      res.status(StatusCodes.NOT_FOUND).json({
+        error: 'User does not exist'
+      })
     }
     const resettoken = await resettokengen(user)
     const data = await Resetpasswordmail(resettoken, email)
@@ -152,7 +153,7 @@ export const ForgetPassword = async (req: Request, res: Response, next: NextFunc
   } catch (error) {
     if (error instanceof Error) {
       if (error.message === 'User not found') {
-        res.status(409).json({
+        res.status(404).json({
           message: 'User does not exist'
         })
       } else {
@@ -164,7 +165,7 @@ export const ForgetPassword = async (req: Request, res: Response, next: NextFunc
 export const tokenverify = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
-    res.status(400).json({
+    res.status(StatusCodes.BAD_REQUEST).json({
       error: errors.array()
     })
   }
@@ -183,7 +184,7 @@ export const tokenverify = async (req: Request, res: Response, next: NextFunctio
 export const refreshAccessToken = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
-    res.status(400).json({
+    res.status(StatusCodes.BAD_REQUEST).json({
       errors: errors.array()
     })
   }
@@ -218,7 +219,7 @@ export const refreshAccessToken = async (req: Request, res: Response, next: Next
 export const verifyUser = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
-    res.status(400).json({
+    res.status(StatusCodes.BAD_REQUEST).json({
       errors: errors.array()
     })
   }
@@ -248,7 +249,7 @@ export const verifyUser = async (req: Request, res: Response, next: NextFunction
 export const resetPassword = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
-    res.status(400).json({
+    res.status(StatusCodes.BAD_REQUEST).json({
       errors: errors.array()
     })
   }
@@ -265,9 +266,13 @@ export const resetPassword = async (req: Request, res: Response, next: NextFunct
     }
   } catch (error) {
     if (error instanceof Error) {
-      res.status(500).json({
-        error: error.message
-      })
+      if (error.message === 'Authentication failed' || error.message === 'jwt expired' || error.message === 'invalid token') {
+        res.status(401).json({
+          error: 'Authentication Failed'
+        })
+      } else {
+        next(error)
+      }
     }
   }
 }

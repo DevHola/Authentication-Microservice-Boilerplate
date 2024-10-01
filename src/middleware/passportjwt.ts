@@ -3,6 +3,7 @@ import { Strategy as JWTStrategy } from 'passport-jwt'
 import { type Request } from 'express'
 import { getuserbyemail } from '../services/userService'
 import { type DecodedToken } from './jwt'
+import { type User } from '../interfaces/Interface'
 
 const authorizationExtractor = function (req: Request): string | null {
   if ((req.headers.authorization != null) && req.headers.authorization.startsWith('Bearer ')) {
@@ -21,7 +22,7 @@ export default new JWTStrategy(
     algorithms: ['RS256']
   }, async (payload: DecodedToken, done): Promise<void> => {
     try {
-      const user = await getuserbyemail(payload.email)
+      const user: User = await getuserbyemail(payload.email)
       if (user !== null) {
         done(null, user)
       } else {
