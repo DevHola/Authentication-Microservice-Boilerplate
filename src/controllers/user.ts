@@ -1,7 +1,8 @@
+/* eslint-disable @typescript-eslint/strict-boolean-expressions */
 import { type Request, type Response, type NextFunction } from 'express'
 import { type User } from '../interfaces/Interface'
 import { register, comparePassword, accountVerify, passwordReset, checkemailexist, getuserbyemail } from '../services/userService'
-import { validationResult } from 'express-validator/check'
+import { validationResult } from 'express-validator'
 import { StatusCodes } from 'http-status-codes'
 import { deleteRVToken, storeRefreshToken } from '../config/redis'
 import { accesstokengen, refreshtokengen, Resetpasswordmail, resettokengen, validateAccessToken, validateRefreshToken, validateresetToken, validateverifyToken, verificationmail, verifytokengen } from '../config/reuseables'
@@ -74,7 +75,9 @@ export const Login = async (req: Request, res: Response, next: NextFunction): Pr
     }
     const compare = await comparePassword(password, user.email)
     if (!compare) {
-      throw new Error('invalid credentials')
+      res.status(401).json({
+        error: 'Invalid Credentials'
+      })
     }
     if (user.isverified === false) {
       const verifytoken = await verifytokengen(user)
@@ -108,10 +111,6 @@ export const Login = async (req: Request, res: Response, next: NextFunction): Pr
       if (error.message === 'NoUser') {
         res.status(StatusCodes.NOT_FOUND).json({
           error: 'User does not exist'
-        })
-      } else if (error.message === 'invalid credentials') {
-        res.status(401).json({
-          error: 'Invalid Credentials'
         })
       } else {
         next(error)

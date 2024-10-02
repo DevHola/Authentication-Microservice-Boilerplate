@@ -190,6 +190,16 @@ describe('ALREADT REGISTERED & MISSING DATA ENDPOINT', () => {
         expect(res_login.body.error).toBeDefined()
         expect(res_login.body.error).toBe('Invalid Credentials')
     })
+    it('LOGIN - password less than 8', async () => {
+        const res_login = await request(app)
+        .post('/api/v1/auth/public/login')
+        .send({
+            email:'fawaz0633@gmail.com',
+            password:'1234',
+        })
+        expect(res_login.statusCode).toBe(400)
+        expect(res_login.body.errors).toBeDefined()
+    })
     it('Forget Password - missing data', async () => {
         const forget = await request(app)
         .post('/api/v1/auth/public/forget')
@@ -203,4 +213,40 @@ describe('ALREADT REGISTERED & MISSING DATA ENDPOINT', () => {
     // FOR REFRESH MISSING DATA & AUTH FAILED
     // FOR VERIFY USER MISSING DATA & AUTH FAILED
     // FOR RESETPASSWORD MISSING DATA & ERROR
+})
+describe('ALREADT REGISTERED & MISSING DATA ENDPOINT', () => {
+    it('Forget Password - missing data', async () => {
+        const forget_missing = await request(app)
+        .post('/api/v1/auth/public/forget')
+        .send({
+            email: ''
+        })
+        expect(forget_missing.statusCode).toBe(400)
+        expect(forget_missing.body.error).toBeDefined()
+    })
+    // FOR UN-AUTHORISED USER & MISSING DATA
+    it('missing Auth token', async () => {
+        const auth_user = await request(app)
+        .post('/api/v1/auth/protected/token')
+        .set('authorization', '')
+        expect(auth_user.statusCode).toBe(401)
+        
+    })
+        // FOR UN-AUTHORISED USER & MISSING DATA
+        it('No Auth token', async () => {
+            const auth_user = await request(app)
+            .post('/api/v1/auth/protected/token')
+            expect(auth_user.statusCode).toBe(401)
+            
+        })
+    it('Refresh missing token', async () => {
+        const refresh_missing_token = await request(app)
+        .post('/api/v1/auth/public/refresh')
+        .send({
+            token: ''
+        })
+        expect(refresh_missing_token.statusCode).toBe(400)
+        expect(refresh_missing_token.body.errors).toBeDefined()
+    })
+
 })
