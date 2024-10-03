@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-misused-promises */
 import { Router } from 'express'
 import { Register, Login, ForgetPassword, refreshAccessToken, resetPassword, verifyUser } from '../controllers/user'
-import { registerValidation, loginValidation, forgetValidation, resetPasswordValidation, refreshAccessTokenValidation, userVerifyTokenValidation } from '../validations/user.validation'
+import { registerValidation, loginValidation, forgetValidation, resetPasswordValidation, refreshAccessTokenValidation, userVerifyTokenValidation } from '../middleware/user.validation'
 const publicrouter = Router()
 
 publicrouter.post('/register', registerValidation, Register)

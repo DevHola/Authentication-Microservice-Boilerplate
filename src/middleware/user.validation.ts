@@ -40,6 +40,7 @@ export const loginValidation = [
     .withMessage('password must be string')
     .isLength({ min: 8 })
     .withMessage('Password must be greater than 8')
+    .notEmpty().withMessage('Password is required')
 ]
 export const forgetValidation = [
   body('email')
@@ -53,12 +54,16 @@ export const authuservalidation = [
   header('authorization')
     .exists({ checkNull: true, checkFalsy: true })
     .withMessage('Token is required')
+    .isString()
+    .withMessage('Token must be string')
     .not().isEmpty().withMessage('token is required')
 ]
 export const resetPasswordValidation = [
   body('token')
     .exists({ checkNull: true, checkFalsy: true })
-    .withMessage('Token is required'),
+    .withMessage('Token is required')
+    .isString()
+    .withMessage('Token must be string'),
   body('password')
     .exists({ checkNull: true, checkFalsy: true })
     .withMessage('password is required')
@@ -69,11 +74,15 @@ export const refreshAccessTokenValidation = [
   body('token')
     .exists({ checkNull: true, checkFalsy: true })
     .withMessage('Token is required')
+    .isString()
+    .withMessage('Token must be string')
     .not().isEmpty().withMessage('Token should not be empty')
 ]
 export const userVerifyTokenValidation = [
   body('token')
     .exists({ checkNull: true, checkFalsy: true })
     .withMessage('Token is required')
+    .isString()
+    .withMessage('Token must be string')
     .not().isEmpty().withMessage('Token should not be empty')
 ]

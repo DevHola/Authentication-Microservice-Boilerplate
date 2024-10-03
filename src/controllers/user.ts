@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/strict-boolean-expressions */
 import { type Request, type Response, type NextFunction } from 'express'
 import { type User } from '../interfaces/Interface'
 import { register, comparePassword, accountVerify, passwordReset, checkemailexist, getuserbyemail } from '../services/userService'
@@ -9,10 +8,10 @@ import { accesstokengen, refreshtokengen, Resetpasswordmail, resettokengen, vali
 import createMQProducer from '../config/rabbitmqconfig'
 const url = process.env.MQCONNECTURL ?? ''
 
-export const Register = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const Register = async (req: Request, res: Response, next: NextFunction) => {
   const error = validationResult(req)
   if (!error.isEmpty()) {
-    res.status(StatusCodes.BAD_REQUEST).json({ errors: error.array() })
+    return res.status(StatusCodes.BAD_REQUEST).json({ errors: error.array() })
   }
   try {
     const name: string = req.body.name
@@ -20,9 +19,8 @@ export const Register = async (req: Request, res: Response, next: NextFunction):
     const password: string = req.body.password
     const usertype: number = req.body.usertype
     const check = await checkemailexist(email)
-    // https://www.npmjs.com/package/response-status-code
     if (check) {
-      res.status(409).json({
+      return res.status(409).json({
         error: 'User already exists'
       })
     }
@@ -49,7 +47,7 @@ export const Register = async (req: Request, res: Response, next: NextFunction):
       data
     }
     producer(JSON.stringify(msg))
-    res.status(200).json({
+    return res.status(200).json({
       message: `Registration successful. A verification mail has been sent to ${email}`
     })
   } catch (error) {
@@ -58,24 +56,25 @@ export const Register = async (req: Request, res: Response, next: NextFunction):
     }
   }
 }
-export const Login = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const Login = async (req: Request, res: Response, next: NextFunction) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
-    res.status(StatusCodes.BAD_REQUEST).json({ errors: errors.array() })
+    return res.status(StatusCodes.BAD_REQUEST).json({ errors: errors.array() })
   }
   try {
     const email: string = req.body.email
     const password: string = req.body.password
-    const user: User = await getuserbyemail(email)
+    const user: User | undefined = await getuserbyemail(email)
     // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-    if (!user || user == null) {
-      res.status(StatusCodes.NOT_FOUND).json({
+    if (!user) {
+      return res.status(StatusCodes.NOT_FOUND).json({
         error: 'User does not exist'
       })
     }
-    const compare = await comparePassword(password, user.email)
+    const compare: boolean = await comparePassword(password, user.email)
+    console.log(compare)
     if (!compare) {
-      res.status(401).json({
+      return res.status(StatusCodes.UNAUTHORIZED).json({
         error: 'Invalid Credentials'
       })
     }
@@ -91,7 +90,7 @@ export const Login = async (req: Request, res: Response, next: NextFunction): Pr
         data
       }
       producer(JSON.stringify(msg))
-      res.status(403).json({
+      return res.status(403).json({
         message: 'Your email address is not verified. A verification mail has been sent to your mail.',
         status: false,
         token: verifytoken
@@ -101,27 +100,21 @@ export const Login = async (req: Request, res: Response, next: NextFunction): Pr
       if ((user.user_id) != null) {
         await storeRefreshToken(accesstoken, user.user_id, refreshtoken)
       }
-      res.status(200).json({
+      return res.status(200).json({
         token: accesstoken,
         status: true
       })
     }
   } catch (error) {
     if (error instanceof Error) {
-      if (error.message === 'NoUser') {
-        res.status(StatusCodes.NOT_FOUND).json({
-          error: 'User does not exist'
-        })
-      } else {
-        next(error)
-      }
+      next(error)
     }
   }
 }
-export const ForgetPassword = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const ForgetPassword = async (req: Request, res: Response, next: NextFunction) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
-    res.status(StatusCodes.BAD_REQUEST).json({
+    return res.status(StatusCodes.BAD_REQUEST).json({
       error: errors.array()
     })
   }
@@ -130,7 +123,7 @@ export const ForgetPassword = async (req: Request, res: Response, next: NextFunc
     const user: User = await getuserbyemail(email)
     // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (!user || user == null) {
-      res.status(StatusCodes.NOT_FOUND).json({
+      return res.status(StatusCodes.NOT_FOUND).json({
         error: 'User does not exist'
       })
     }
@@ -145,14 +138,14 @@ export const ForgetPassword = async (req: Request, res: Response, next: NextFunc
       data
     }
     producer(JSON.stringify(msg))
-    res.status(200).json({
+    return res.status(200).json({
       message: 'Reset Code has been sent to your mail',
       token: resettoken
     })
   } catch (error) {
     if (error instanceof Error) {
       if (error.message === 'User not found') {
-        res.status(404).json({
+        return res.status(404).json({
           message: 'User does not exist'
         })
       } else {
@@ -161,29 +154,29 @@ export const ForgetPassword = async (req: Request, res: Response, next: NextFunc
     }
   }
 }
-export const tokenverify = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const tokenverify = async (req: Request, res: Response, next: NextFunction) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
-    res.status(StatusCodes.BAD_REQUEST).json({
+    return res.status(StatusCodes.BAD_REQUEST).json({
       error: errors.array()
     })
   }
   try {
     if (req.user != null) {
-      res.status(200).json({
+      return res.status(200).json({
         user: req.user
       })
     } else {
-      res.status(401).json({ message: 'Unauthorized: User ID is missing' })
+      return res.status(401).json({ message: 'Unauthorized: User ID is missing' })
     }
   } catch (error) {
     next(error)
   }
 }
-export const refreshAccessToken = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const refreshAccessToken = async (req: Request, res: Response, next: NextFunction) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
-    res.status(StatusCodes.BAD_REQUEST).json({
+    return res.status(StatusCodes.BAD_REQUEST).json({
       errors: errors.array()
     })
   }
@@ -194,19 +187,19 @@ export const refreshAccessToken = async (req: Request, res: Response, next: Next
     if (user != null) {
       const checkreftoken = await validateRefreshToken(user, acctoken)
       if (!checkreftoken) {
-        res.status(401).json({
+        return res.status(401).json({
           error: 'authentication failed'
         })
       }
       const accesstoken = await accesstokengen(user)
-      res.status(200).json({
+      return res.status(200).json({
         token: accesstoken
       })
     }
   } catch (error) {
     if (error instanceof Error) {
       if (error.message === 'Authentication failed' || error.message === 'jwt expired' || error.message === 'invalid token') {
-        res.status(401).json({
+        return res.status(401).json({
           error: 'Authentication Failed'
         })
       } else {
@@ -215,10 +208,10 @@ export const refreshAccessToken = async (req: Request, res: Response, next: Next
     }
   }
 }
-export const verifyUser = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const verifyUser = async (req: Request, res: Response, next: NextFunction) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
-    res.status(StatusCodes.BAD_REQUEST).json({
+    return res.status(StatusCodes.BAD_REQUEST).json({
       errors: errors.array()
     })
   }
@@ -228,14 +221,14 @@ export const verifyUser = async (req: Request, res: Response, next: NextFunction
     const userId = user.user_id
     if (userId != null) {
       await accountVerify(userId)
-      res.status(200).json({
+      return res.status(200).json({
         message: 'Account Verified'
       })
     }
   } catch (error) {
     if (error instanceof Error) {
       if (error.message === 'Authentication failed' || error.message === 'jwt expired' || error.message === 'invalid token') {
-        res.status(401).json({
+        return res.status(401).json({
           error: 'Authentication Failed'
         })
       } else {
@@ -245,10 +238,10 @@ export const verifyUser = async (req: Request, res: Response, next: NextFunction
   }
 }
 
-export const resetPassword = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const resetPassword = async (req: Request, res: Response, next: NextFunction) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
-    res.status(StatusCodes.BAD_REQUEST).json({
+    return res.status(StatusCodes.BAD_REQUEST).json({
       errors: errors.array()
     })
   }
@@ -259,14 +252,14 @@ export const resetPassword = async (req: Request, res: Response, next: NextFunct
     const userId = user.user_id
     if (userId != null) {
       await passwordReset(password, userId)
-      res.status(200).json({
+      return res.status(200).json({
         message: 'Password Reset Successful'
       })
     }
   } catch (error) {
     if (error instanceof Error) {
       if (error.message === 'Authentication failed' || error.message === 'jwt expired' || error.message === 'invalid token') {
-        res.status(401).json({
+        return res.status(401).json({
           error: 'Authentication Failed'
         })
       } else {
@@ -275,14 +268,14 @@ export const resetPassword = async (req: Request, res: Response, next: NextFunct
     }
   }
 }
-export const logout = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const logout = async (req: Request, res: Response, next: NextFunction) => {
   try {
     if ((req.user) != null) {
       const user = req.user as User
       const token = req.headers.authorization
       const key = `${token}|${user.user_id}`
       await deleteRVToken(key)
-      res.status(200).json({
+      return res.status(200).json({
         message: 'Logged out'
       })
     }

@@ -25,16 +25,9 @@ export const checkemailexist = async (email: string): Promise<boolean> => {
 
 export const comparePassword = async (password: string, email: string): Promise<boolean> => {
   const finduser = await pool.query('SELECT password FROM users WHERE email=$1', [email])
-  const user = finduser.rows[0] as User | undefined
-  if (user == null) {
-    throw new Error('Authentication failed')
-  }
-  const passwordcompare = await bcrypt.compare(password, user.password)
-  if (!passwordcompare) {
-    return false
-  } else {
-    return true
-  }
+  const user = finduser.rows[0] as User
+  const passwordcompare: boolean = await bcrypt.compare(password, user.password)
+  return passwordcompare
 }
 
 export const accountVerify = async (id: string): Promise<void> => {
@@ -44,7 +37,6 @@ export const accountVerify = async (id: string): Promise<void> => {
 export const getuserbyemail = async (email: string): Promise<User> => {
   const finduser = await pool.query('SELECT user_id, name, email, isverified FROM users WHERE email=$1', [email])
   const user = finduser.rows[0] as User
-  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
   return user
 }
 

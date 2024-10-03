@@ -1,3 +1,46 @@
 pipeline {
+    agent: any
+    tools: {
+        nodejs 'nodejs'
+    }
+    stages{
+        stage('SCM'){
+            steps {
+
+            }
+
+        }
+        stage('INSTALL DEPENDENCIES'){
+            steps {
+                sh "npm install"
+            }
+        }
+        stage('OWASP SECURITY CHECH'){
+            steps {
+
+            }
+        }
+        stage('BUILD'){
+            steps {
+                // docker-compose build
+            }
+
+        }
+        stage('RUN SERVICES') {
+            steps {
+                // docker compose up -d
+            }
+        }
+        stage('Tests'){
+            steps {
+                sh "npm run test"
+            }
+        }
+    } 
+    post {
+        always {
+            sh 'docker-compose down'
+        }
+    }
     
 }

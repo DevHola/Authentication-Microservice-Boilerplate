@@ -3,7 +3,7 @@
 import { Router } from 'express'
 import passport from 'passport'
 import { logout, tokenverify } from '../controllers/user'
-import { authuservalidation } from '../validations/user.validation'
+import { authuservalidation } from '../middleware/user.validation'
 const router = Router()
 router.post('/token', passport.authenticate('jwt', { session: false }), authuservalidation, tokenverify)
 router.post('/logout', passport.authenticate('jwt', { session: false }), authuservalidation, logout)

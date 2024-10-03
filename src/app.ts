@@ -25,13 +25,16 @@ app.use(cors())
 app.use(cookieparser())
 app.use(morgan('combined'))
 app.use(hemlet())
+app.disable('x-powered-by')
 app.use(passport.initialize())
 passport.use(JWTStrategy)
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 app.use((error: Error, req: Request, res: Response, next: NextFunction) => {
-  res.status(500).json({
-    message: error.message
+  const isProduction = process.env.NODE_ENV === 'production'
+  return res.status(500).json({
+    message: isProduction ? 'An unexpected error occurred.' : error.message,
+    ...(isProduction ? null : { stack: error.stack })
   })
 })
 app.use('/api/v1/auth/protected', router)
