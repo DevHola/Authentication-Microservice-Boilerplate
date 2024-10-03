@@ -9,7 +9,7 @@ const environments: string[] = ['development', 'staging', 'production']
 
 const connection: Knex.ConnectionConfig = {
   user: process.env.DBUSER as string,
-  password: '12345678',
+  password: process.env.DBPASSWORD as string,
   host: process.env.DBHOST as string,
   database: process.env.DATABASE as string
 }
