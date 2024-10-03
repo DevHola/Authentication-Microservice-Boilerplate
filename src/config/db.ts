@@ -23,6 +23,3 @@ pool.connect((error, client, release) => {
     release()
   }
 })
-// postgres-migrations
-// knex
-// node-pg-migrate

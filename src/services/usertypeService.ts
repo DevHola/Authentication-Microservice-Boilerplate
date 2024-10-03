@@ -7,17 +7,17 @@ export const createUserType = async (usertype: UserType): Promise<QueryResult> =
 }
 
 export const UpdateUserType = async (id: number, usertype: UserType): Promise<QueryResult> => {
-  return await pool.query('UPDATE usertype SET name=$1, description=$2 WHERE usertype_id=$3', [usertype.name, usertype.description, id])
+  return await pool.query('UPDATE usertype SET name=$1, description=$2 WHERE id=$3', [usertype.name, usertype.description, id])
 }
 
 export const getAllUserType = async (): Promise<QueryResult> => {
-  return await pool.query('SELECT usertype_id, name, description From usertype')
+  return await pool.query('SELECT id, name, description From usertype')
 }
 
 export const getUserType = async (id: number): Promise<QueryResult> => {
-  return await pool.query('SELECT usertype_id, name, description From usertype WHERE usertype_id = $1', [id])
+  return await pool.query('SELECT id, name, description From usertype WHERE id = $1', [id])
 }
 
 export const deleteUserType = async (id: number): Promise<void> => {
-  await pool.query('DELETE FROM usertype WHERE usertype_id = $1', [id])
+  await pool.query('DELETE FROM usertype WHERE id = $1', [id])
 }

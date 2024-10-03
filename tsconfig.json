@@ -13,6 +13,6 @@
     "types": ["node", "express"]  // List the types you are using
   },
   "noImplicitAny": false,
-  "include": ["src/**/*.ts", "src/**/*.d.ts", "test/**/*"]
+  "include": ["src/**/*.ts", "src/**/*.d.ts", "test/**/*", "knexfile.ts"]
 
 }

@@ -17,7 +17,6 @@ import publicrouter from './routes/index.public'
 import utrouter from './routes/usertypes'
 import passport = require('passport')
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-// "express-validator": "^5.1.0",
 import JWTStrategy from './middleware/passportjwt'
 
 const app: Application = express()
