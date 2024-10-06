@@ -22,7 +22,7 @@ const commonConfig: Knex.Config = {
     max: 10
   },
   migrations: {
-    tableName: 'knex_migrations',
+    tableName: 'Auth_knex_migrations',
     directory: 'src/db/migrations'
   },
   seeds: {

@@ -9,13 +9,13 @@ export interface DecodedToken {
 
 export const verifyAccessToken = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const headers = req.headers.authorization
-  if (headers != null && process.env.AUTH_ACCESS_TOKEN_SECRET != null) {
+  if (headers != null && process.env.AUTH_ACCESS_TOKEN_PUBLIC_SECRET != null) {
     const [header, token] = headers.split(' ')
     if (header !== 'Bearer' || (token.length === 0)) {
       res.status(401).json({ message: 'Invalid Access Token' })
     }
     try {
-      const decoded = jwt.verify(token, process.env.AUTH_ACCESS_TOKEN_SECRET) as DecodedToken
+      const decoded = jwt.verify(token, process.env.AUTH_ACCESS_TOKEN_PUBLIC_SECRET, { algorithms: ['RS256'] }) as DecodedToken
       const user = await getuserbyemail(decoded.email)
       if (user == null) {
         res.status(401).json({ message: 'Authentication failed' })
